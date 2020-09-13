@@ -1,7 +1,7 @@
-use std::{env, error::Error};
-
-use nf_rated::db::get_unsynced_rows;
+use nf_rated::{core::JsonRow, core::OmdbJson, db::get_unsynced_rows};
+use reqwest::blocking::get;
 use rusqlite::Connection;
+use std::{collections::HashMap, env, error::Error};
 
 fn get_api_key() -> String {
     env::var("OMDB_KEY").expect(
@@ -9,14 +9,21 @@ fn get_api_key() -> String {
     )
 }
 
+fn request_imdb_data(api_key: &str, title: &str) -> Result<(), Box<dyn Error>> {
+    let uri = format!("http://www.omdbapi.com/?apikey={}&t={}", api_key, title);
+    let res: OmdbJson = get(&uri)?.json()?;
+    println!("{:#?}", res);
+    let json_row: JsonRow = res.into();
+    println!("{:#?}", json_row);
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
-    let con = Connection::open("resources/data/nf_rated.sqlite")?;
-    let _api_key = get_api_key();
+    // let con = Connection::open("resources/data/nf_rated.sqlite")?;
+    // let unsynceds = get_unsynced_rows(&con)?;
 
-    let unsynceds = get_unsynced_rows(&con)?;
-    eprintln!("{:?}", unsynceds);
-
-    // TODO: read rows from db + filter rows that don't have imdb rating yet
+    let api_key = get_api_key();
+    request_imdb_data(&api_key, "batman")?;
     // TODO: request omdb info given movie title (figure out crate to use)
     // TODO: if no value was returned remove movie from db
     // TODO: if value was returned update row

@@ -1,7 +1,8 @@
 use std::time::SystemTime;
 
 use csv::StringRecord;
-use rusqlite::{Row, Rows, ToSql};
+use rusqlite::Row;
+use serde::Deserialize;
 
 const N_A: &str = "N/A";
 
@@ -18,10 +19,33 @@ pub struct CsvRow {
     plot: String,
 }
 
+#[derive(Deserialize, Debug)]
+pub struct OmdbJson {
+    Type: String,
+    Runtime: String,
+    Plot: String,
+
+    Genre: String,
+    Language: String,
+    Writer: String,
+
+    imdbRating: String,
+    imdbVotes: String,
+    imdbID: String,
+}
+
+fn json_string(s: &str) -> Option<String> {
+    match s {
+        N_A => None,
+        _ => Some(s.to_string()),
+    }
+}
+
+#[derive(Deserialize, Debug)]
 pub struct JsonRow {
-    typ: String,
-    duration: String,
-    plot: String,
+    typ: Option<String>,
+    duration: Option<String>,
+    plot: Option<String>,
 
     genre: String,
     language: String,
@@ -30,6 +54,28 @@ pub struct JsonRow {
     imdb_rating: u32,
     imdb_votes: u32,
     imdb_id: String,
+}
+
+impl From<OmdbJson> for JsonRow {
+    fn from(json: OmdbJson) -> Self {
+        let imdb_rating =
+            (maybe_float(&json.imdbRating).expect("incorrect imdb rating") * 10.0).round() as u32;
+        let imdb_votes =
+            maybe_uint(&json.imdbVotes.replace(",", "")).expect("incorrect imdb votes");
+        Self {
+            typ: json_string(&json.Type),
+            duration: json_string(&json.Runtime),
+            plot: json_string(&json.Plot),
+
+            genre: json.Genre,
+            language: json.Language,
+            writer: json.Writer,
+
+            imdb_rating,
+            imdb_votes,
+            imdb_id: json.imdbID,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -70,13 +116,6 @@ pub fn secs_since_creation() -> u32 {
 
     // This hack will work for about 136 years
     (since_epoch - CREATE_SECS) as u32
-}
-
-fn json_string(s: &str) -> Option<&str> {
-    match s {
-        N_A => None,
-        _ => Some(s),
-    }
 }
 
 fn maybe_uint(s: &str) -> Option<u32> {
