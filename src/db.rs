@@ -18,7 +18,7 @@ pub fn create_table(con: &Connection) -> Result<usize> {
 
     // JSON
     // - genre          Genre
-    // - languate       Language
+    // - language       Language
     // - writer         Writer
     // - imdb_rating    imdbRating (multiplied by 10 -> 0..100)
     // - imdb_votes     imdbVotes
@@ -50,7 +50,7 @@ pub fn create_table(con: &Connection) -> Result<usize> {
     )
 }
 
-static UPSERT_QUERY: &str = "INSERT INTO nf_imdb (
+const UPSERT_QUERY: &str = "INSERT INTO nf_imdb (
     id          ,
     title       ,
     year        ,
@@ -98,9 +98,63 @@ pub fn upsert_row(con: &Connection, row: &RatedRow) -> Result<usize> {
     )
 }
 
-static SELECT_UNSYNCED_QUERY: &str = "SELECT * FROM nf_imdb WHERE last_sync IS NULL;";
+const SELECT_UNSYNCED_QUERY: &str = "SELECT * FROM nf_imdb WHERE last_sync IS NULL;";
 pub fn get_unsynced_rows(con: &Connection) -> Result<Vec<RatedRow>, Error> {
     let mut stmt = con.prepare(SELECT_UNSYNCED_QUERY)?;
     let iter = stmt.query_map(NO_PARAMS, |row| Ok(rated_row_from_row(&row)))?;
     iter.collect()
+}
+
+const SYNC_QUERY: &str = "UPDATE nf_imdb
+    SET
+        id         = ?1,
+        title      = ?2 ,
+        year       = ?3 ,
+        cast       = ?4 ,
+        country    = ?5 ,
+        director   = ?6 ,
+        type       = ?7 ,
+        duration   = ?8 ,
+        plot       = ?9 ,
+
+        genre      = ?10 , 
+        writer     = ?11 ,
+        language   = ?12 ,
+
+        imdb_rating= ?13 ,
+        imdb_votes = ?14 ,
+        imdb_id    = ?15 ,
+
+        last_sync  = ?16
+    WHERE
+        id = ?1;
+";
+
+pub fn sync_row(con: &Connection, row: &RatedRow) -> Result<usize> {
+    con.execute(
+        SYNC_QUERY,
+        params![
+            row.id,
+            row.title,
+            row.year,
+            row.cast,
+            row.country,
+            row.director,
+            row.typ,
+            row.duration,
+            row.plot,
+            row.genre,
+            row.writer,
+            row.language,
+            row.imdb_rating,
+            row.imdb_votes,
+            row.imdb_id,
+            row.last_sync
+        ],
+    )
+}
+
+const DELETE_ROW_QUERY: &str = "DELETE FROM nf_imdb WHERE id = ?1;";
+pub fn delete_row(con: &Connection, id: u32) -> Result<usize> {
+    con.execute(DELETE_ROW_QUERY, params![id])
 }

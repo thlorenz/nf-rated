@@ -20,6 +20,7 @@ pub struct CsvRow {
 }
 
 #[derive(Deserialize, Debug)]
+#[allow(non_snake_case)]
 pub struct OmdbJson {
     Type: String,
     Runtime: String,
@@ -41,7 +42,7 @@ fn json_string(s: &str) -> Option<String> {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct JsonRow {
     typ: Option<String>,
     duration: Option<String>,
@@ -51,17 +52,27 @@ pub struct JsonRow {
     language: String,
     writer: String,
 
-    imdb_rating: u32,
-    imdb_votes: u32,
-    imdb_id: String,
+    imdb_rating: Option<u32>,
+    imdb_votes: Option<u32>,
+    imdb_id: Option<String>,
+}
+
+impl JsonRow {
+    pub fn is_missing_imdb_data(&self) -> bool {
+        self.imdb_id.is_none() || self.imdb_rating.is_none()
+    }
 }
 
 impl From<OmdbJson> for JsonRow {
     fn from(json: OmdbJson) -> Self {
-        let imdb_rating =
-            (maybe_float(&json.imdbRating).expect("incorrect imdb rating") * 10.0).round() as u32;
-        let imdb_votes =
-            maybe_uint(&json.imdbVotes.replace(",", "")).expect("incorrect imdb votes");
+        let imdb_rating = match maybe_float(&json.imdbRating) {
+            Some(rating) => Some((rating * 10.0).round() as u32),
+            None => None,
+        };
+
+        let imdb_votes = maybe_uint(&json.imdbVotes.replace(",", ""));
+        let imdb_id = json_string(&json.imdbID);
+
         Self {
             typ: json_string(&json.Type),
             duration: json_string(&json.Runtime),
@@ -73,12 +84,12 @@ impl From<OmdbJson> for JsonRow {
 
             imdb_rating,
             imdb_votes,
-            imdb_id: json.imdbID,
+            imdb_id,
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RatedRow {
     // Csv
     pub id: u32,
@@ -194,5 +205,32 @@ pub fn rated_row_from_row(row: &Row) -> RatedRow {
         imdb_votes: row.get(13).unwrap(),
         imdb_id: row.get(14).unwrap(),
         last_sync: row.get(15).unwrap(),
+    }
+}
+
+impl From<(RatedRow, JsonRow, u32)> for RatedRow {
+    fn from((rated, json, last_sync): (RatedRow, JsonRow, u32)) -> Self {
+        let typ = json.typ.unwrap_or(rated.typ);
+        let duration = json.duration.unwrap_or(rated.duration);
+        let plot = json.plot.unwrap_or(rated.plot);
+
+        Self {
+            id: rated.id,
+            title: rated.title,
+            year: rated.year,
+            cast: rated.cast,
+            country: rated.country,
+            director: rated.director,
+            typ,
+            duration,
+            plot,
+            genre: Some(json.genre),
+            writer: Some(json.writer),
+            language: Some(json.language),
+            imdb_rating: json.imdb_rating,
+            imdb_votes: json.imdb_votes,
+            imdb_id: json.imdb_id,
+            last_sync: Some(last_sync),
+        }
     }
 }
