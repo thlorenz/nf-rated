@@ -1,12 +1,13 @@
 use nf_rated::{
-    core::secs_since_creation, core::JsonRow, core::OmdbJson, core::OmdbRateLimitReachedJson,
-    core::RatedRow, db::delete_row, db::get_unsynced_rows, db::sync_row,
+    core::secs_since_creation, core::JsonRow, core::OmdbErrorResponseJson,
+    core::OmdbSuccessResponseJson, core::RatedRow, db::delete_row, db::get_unsynced_rows,
+    db::sync_row,
 };
 use reqwest::blocking::get;
 use rusqlite::Connection;
 use std::{env, error::Error};
 
-const RATE_LIMIT: usize = 5000;
+const RATE_LIMIT: usize = 2000;
 
 fn get_api_key() -> String {
     env::var("OMDB_KEY").expect(
@@ -14,8 +15,12 @@ fn get_api_key() -> String {
     )
 }
 
-fn reached_rate_limit(json: &OmdbRateLimitReachedJson) -> bool {
+fn reached_rate_limit(json: &OmdbErrorResponseJson) -> bool {
     json.Error.contains("limit reached")
+}
+
+fn not_found(json: &OmdbErrorResponseJson) -> bool {
+    json.Error.contains("not found")
 }
 
 fn request_imdb_data_for_title(api_key: &str, title: &str) -> Result<String, Box<dyn Error>> {
@@ -30,6 +35,7 @@ enum SyncImdbResultType {
     RateLimitExceeded,
     MissingImdbData,
     NotFound,
+    NoResponse,
     UnknownError,
 }
 struct SyncImdbResult {
@@ -40,7 +46,8 @@ struct SyncImdbResult {
 fn sync_imdb_title(api_key: &str, title: &str) -> SyncImdbResult {
     match request_imdb_data_for_title(api_key, title) {
         Ok(text) => {
-            let omdb_json: Option<OmdbJson> = serde_json::from_str(&text).unwrap_or(None);
+            let omdb_json: Option<OmdbSuccessResponseJson> =
+                serde_json::from_str(&text).unwrap_or(None);
             match omdb_json {
                 Some(json) => {
                     let row: JsonRow = json.into();
@@ -56,37 +63,48 @@ fn sync_imdb_title(api_key: &str, title: &str) -> SyncImdbResult {
                         }
                     }
                 }
-                // Got a response but failed to parse, let's check if we exceeded our rate limit
                 None => {
-                    let rate_limit_json: Option<OmdbRateLimitReachedJson> =
+                    let error_response_json: Option<OmdbErrorResponseJson> =
                         serde_json::from_str(&text).unwrap_or(None);
-                    match rate_limit_json {
+                    match error_response_json {
                         Some(json) => {
                             if reached_rate_limit(&json) {
                                 SyncImdbResult {
                                     typ: SyncImdbResultType::RateLimitExceeded,
                                     row: None,
                                 }
+                            } else if not_found(&json) {
+                                SyncImdbResult {
+                                    typ: SyncImdbResultType::NotFound,
+                                    row: None,
+                                }
                             } else {
+                                eprintln!("Error: {}", json.Error);
                                 SyncImdbResult {
                                     typ: SyncImdbResultType::UnknownError,
                                     row: None,
                                 }
                             }
                         }
-                        None => SyncImdbResult {
-                            typ: SyncImdbResultType::UnknownError,
-                            row: None,
-                        },
+                        None => {
+                            eprintln!("Response: {}", text);
+                            SyncImdbResult {
+                                typ: SyncImdbResultType::UnknownError,
+                                row: None,
+                            }
+                        }
                     }
                 }
             }
         }
-        // Didn't get a response at all which means the title wasn't found
-        _ => SyncImdbResult {
-            typ: SyncImdbResultType::NotFound,
-            row: None,
-        },
+        // Didn't get a response at all
+        Err(err) => {
+            eprintln!("No response {}", err);
+            SyncImdbResult {
+                typ: SyncImdbResultType::NoResponse,
+                row: None,
+            }
+        }
     }
 }
 
@@ -115,12 +133,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 let synced_rated_row: RatedRow =
                     (rated_row.clone(), json_row, secs_since_creation()).into();
                 sync_row(&con, &synced_rated_row)?;
+                eprintln!(" ✓");
             }
             SyncImdbResult {
                 typ: SyncImdbResultType::RateLimitExceeded,
                 ..
             } => {
-                eprintln!("exceeded rate limit");
+                eprintln!("\nExceeded rate limit!!");
                 exceeded_limit = true;
                 break;
             }
@@ -129,7 +148,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 ..
             } => {
                 eprintln!(
-                    "Encountered unknown error when syncing title '{}'",
+                    "\nEncountered unknown error when syncing title '{}'",
                     rated_row.title
                 );
             }
@@ -137,16 +156,25 @@ fn main() -> Result<(), Box<dyn Error>> {
                 typ: SyncImdbResultType::NotFound,
                 ..
             } => {
-                eprintln!("Could not find title '{}'", rated_row.title);
+                eprintln!("\nCould not find title '{}'", rated_row.title);
                 if first_sync {
                     delete_row(&con, rated_row.id)?;
                 }
             }
             SyncImdbResult {
+                typ: SyncImdbResultType::NoResponse,
+                ..
+            } => {
+                eprintln!(
+                    "\nFailed to get response when syncing title '{}'",
+                    rated_row.title
+                );
+            }
+            SyncImdbResult {
                 typ: SyncImdbResultType::MissingImdbData,
                 ..
             } => {
-                eprintln!("Response for '{}' is missing IMDB data", rated_row.title);
+                eprintln!("\nResponse for '{}' is missing IMDB data", rated_row.title);
                 if first_sync {
                     delete_row(&con, rated_row.id)?;
                 }

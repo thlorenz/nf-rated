@@ -21,7 +21,7 @@ pub struct CsvRow {
 
 #[derive(Deserialize, Debug)]
 #[allow(non_snake_case)]
-pub struct OmdbJson {
+pub struct OmdbSuccessResponseJson {
     Type: String,
     Runtime: String,
     Plot: String,
@@ -37,7 +37,7 @@ pub struct OmdbJson {
 
 #[derive(Deserialize, Debug)]
 #[allow(non_snake_case)]
-pub struct OmdbRateLimitReachedJson {
+pub struct OmdbErrorResponseJson {
     pub Error: String,
 }
 
@@ -69,8 +69,8 @@ impl JsonRow {
     }
 }
 
-impl From<OmdbJson> for JsonRow {
-    fn from(json: OmdbJson) -> Self {
+impl From<OmdbSuccessResponseJson> for JsonRow {
+    fn from(json: OmdbSuccessResponseJson) -> Self {
         let imdb_rating = match maybe_float(&json.imdbRating) {
             Some(rating) => Some((rating * 10.0).round() as u32),
             None => None,
