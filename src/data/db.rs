@@ -74,8 +74,11 @@ const SYNC_QUERY: &str = "UPDATE nf_imdb
 ";
 
 const SELECT_UNSYNCED_QUERY: &str = "SELECT * FROM nf_imdb WHERE last_sync IS NULL;";
+const SELECT_SYNCED_QUERY: &str = "SELECT * FROM nf_imdb WHERE last_sync IS NOT NULL;";
 const DELETE_ROW_QUERY: &str = "DELETE FROM nf_imdb WHERE id = ?1;";
 const SELECT_ALL_QUERY: &str = "SELECT * FROM nf_imdb;";
+const SELECT_SYNCED_SORTED_BY_RATING_QUERY: &str =
+    "SELECT * FROM nf_imdb WHERE last_sync IS NOT NULL ORDER BY imdb_rating DESC;";
 
 pub struct Db {
     con: Connection,
@@ -141,6 +144,18 @@ impl Db {
         iter.collect()
     }
 
+    pub fn get_synced_rows(&self) -> Result<Vec<RatedRow>, Error> {
+        let mut stmt = self.con.prepare(SELECT_SYNCED_QUERY)?;
+        let iter = stmt.query_map(NO_PARAMS, |row| Ok(rated_row_from_row(&row)))?;
+        iter.collect()
+    }
+
+    pub fn get_synced_rows_sorted_by_rating(&self) -> Result<Vec<RatedRow>, Error> {
+        let mut stmt = self.con.prepare(SELECT_SYNCED_SORTED_BY_RATING_QUERY)?;
+        let iter = stmt.query_map(NO_PARAMS, |row| Ok(rated_row_from_row(&row)))?;
+        iter.collect()
+    }
+
     pub fn sync_row(&self, row: &RatedRow) -> Result<usize> {
         self.con.execute(
             SYNC_QUERY,
@@ -165,7 +180,7 @@ impl Db {
         )
     }
 
-    pub fn delete_row(&self,id: u32) -> Result<usize> {
+    pub fn delete_row(&self, id: u32) -> Result<usize> {
         self.con.execute(DELETE_ROW_QUERY, params![id])
     }
 
@@ -173,5 +188,5 @@ impl Db {
         let mut stmt = self.con.prepare(SELECT_ALL_QUERY)?;
         let iter = stmt.query_map(NO_PARAMS, |row| Ok(rated_row_from_row(&row)))?;
         iter.collect()
-    } 
+    }
 }
