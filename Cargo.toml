@@ -16,8 +16,8 @@ percent-encoding = "2.1.0"
 
 [[bin]]
 name="sync_ratings"
-path= "src/sync_ratings.rs"
+path= "bin/sync_ratings.rs"
 
 [[bin]]
 name="init_data"
-path= "src/init_data.rs"
+path= "bin/init_data.rs"

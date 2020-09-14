@@ -1,6 +1,6 @@
 use std::{error::Error, fs::File};
 
-use nf_rated::{core::CsvRow, db::create_table, db::upsert_row};
+use nf_rated::data::{db::create_table, db::upsert_row, CsvRow};
 use rusqlite::Connection;
 
 fn main() -> Result<(), Box<dyn Error>> {

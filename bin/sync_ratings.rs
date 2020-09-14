@@ -1,7 +1,9 @@
 use nf_rated::{
-    core::secs_since_creation, core::JsonRow, core::OmdbErrorResponseJson,
-    core::OmdbSuccessResponseJson, core::RatedRow, db::delete_row, db::get_unsynced_rows,
-    db::sync_row,
+    data::{
+        db::delete_row, db::get_unsynced_rows, db::secs_since_creation, db::sync_row, JsonRow,
+        OmdbErrorResponseJson, OmdbSuccessResponseJson,
+    },
+    RatedRow,
 };
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use reqwest::blocking::get;
@@ -124,7 +126,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         nunsynced, amount_to_sync
     );
     let first_sync = true;
-    let mut exceeded_limit = false;
+    let mut _exceeded_limit = false;
     for i in 0..amount_to_sync {
         let rated_row = unsynceds.get(i).unwrap();
         eprint!("Syncing '{}'", rated_row.title);
@@ -145,7 +147,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 ..
             } => {
                 eprintln!("\nExceeded rate limit!!");
-                exceeded_limit = true;
+                _exceeded_limit = true;
                 break;
             }
             SyncImdbResult {
