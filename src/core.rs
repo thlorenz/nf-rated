@@ -35,6 +35,12 @@ pub struct OmdbJson {
     imdbID: String,
 }
 
+#[derive(Deserialize, Debug)]
+#[allow(non_snake_case)]
+pub struct OmdbRateLimitReachedJson {
+    pub Error: String,
+}
+
 fn json_string(s: &str) -> Option<String> {
     match s {
         N_A => None,
