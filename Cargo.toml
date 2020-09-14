@@ -4,6 +4,8 @@ version = "0.1.0"
 authors = ["Thorsten Lorenz <thlorenz@gmx.de>"]
 edition = "2018"
 
+default-run = "tui"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -13,6 +15,8 @@ reqwest = { version = "0.10.8", features = ["blocking", "json"] }
 serde = { version = "1.0.116", features = ["derive"] }
 serde_json = "1.0.57"
 percent-encoding = "2.1.0"
+tui = "0.10.0"
+termion = "1.5.5"
 
 [[bin]]
 name="sync_ratings"
@@ -21,3 +25,7 @@ path= "bin/sync_ratings.rs"
 [[bin]]
 name="init_data"
 path= "bin/init_data.rs"
+
+[[bin]]
+name="tui"
+path= "bin/tui.rs"
