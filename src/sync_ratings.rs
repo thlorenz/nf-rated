@@ -3,6 +3,7 @@ use nf_rated::{
     core::OmdbSuccessResponseJson, core::RatedRow, db::delete_row, db::get_unsynced_rows,
     db::sync_row,
 };
+use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use reqwest::blocking::get;
 use rusqlite::Connection;
 use std::{env, error::Error};
@@ -24,7 +25,11 @@ fn not_found(json: &OmdbErrorResponseJson) -> bool {
 }
 
 fn request_imdb_data_for_title(api_key: &str, title: &str) -> Result<String, Box<dyn Error>> {
-    let uri = format!("http://www.omdbapi.com/?apikey={}&t={}", api_key, title);
+    let uri = format!(
+        "http://www.omdbapi.com/?apikey={}&t={}",
+        api_key,
+        utf8_percent_encode(title, NON_ALPHANUMERIC)
+    );
     let res = get(&uri).expect("could not get uri");
     let txt = res.text()?;
     Ok(txt)
