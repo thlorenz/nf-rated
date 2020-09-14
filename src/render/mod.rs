@@ -1,2 +1,2 @@
-pub use self::tui_util::*;
-mod tui_util;
+pub use self::tui::*;
+mod tui;

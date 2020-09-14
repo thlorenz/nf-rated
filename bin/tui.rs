@@ -1,4 +1,4 @@
-use nf_rated::{data::Db, render::Event, render::Events, RatedRow};
+use nf_rated::{data::Db, render::Event, render::Events, render::StatefulList, RatedRow};
 use std::{error::Error, io};
 use termion::{event::Key, input::MouseTerminal, raw::IntoRawMode, screen::AlternateScreen};
 use tui::{
@@ -8,7 +8,15 @@ use tui::{
 };
 
 struct App {
-    rows: Vec<RatedRow>,
+    items: StatefulList<RatedRow>,
+}
+
+impl App {
+    fn new(rows: Vec<RatedRow>) -> Self {
+        Self {
+            items: StatefulList::with_items(rows),
+        }
+    }
 }
 
 fn render_row(row: &RatedRow) -> ListItem {
@@ -45,7 +53,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let db = Db::new()?;
     let all_rows = db.get_synced_rows_sorted_by_rating()?;
-    let app = App { rows: all_rows };
+    let mut app = App::new(all_rows);
 
     loop {
         terminal.draw(|f| {
@@ -54,23 +62,29 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .constraints([Constraint::Percentage(100)].as_ref())
                 .split(f.size());
 
-            let rendered_rows: Vec<ListItem> = app.rows.iter().map(|row| render_row(row)).collect();
+            let rendered_rows: Vec<ListItem> =
+                app.items.items.iter().map(|row| render_row(row)).collect();
 
             let items = List::new(rendered_rows)
                 .block(Block::default().borders(Borders::ALL))
                 .highlight_style(
                     Style::default()
-                        .bg(Color::LightGreen)
+                        .bg(Color::DarkGray)
                         .add_modifier(Modifier::BOLD),
-                )
-                .highlight_symbol(">> ");
-            f.render_widget(items, chunks[0]);
+                );
+            f.render_stateful_widget(items, chunks[0], &mut app.items.state);
         })?;
 
         match events.next()? {
             Event::Input(input) => match input {
                 Key::Char('q') => {
                     break;
+                }
+                Key::Down => {
+                    app.items.next();
+                }
+                Key::Up => {
+                    app.items.previous();
                 }
                 _ => {}
             },
