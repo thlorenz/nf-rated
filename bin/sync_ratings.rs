@@ -1,13 +1,12 @@
 use nf_rated::{
-    data::{
-        db::delete_row, db::get_unsynced_rows, db::secs_since_creation, db::sync_row, JsonRow,
-        OmdbErrorResponseJson, OmdbSuccessResponseJson,
-    },
+    data::secs_since_creation,
+    data::Db,
+    data::JsonRow,
+    data::{OmdbErrorResponseJson, OmdbSuccessResponseJson},
     RatedRow,
 };
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use reqwest::blocking::get;
-use rusqlite::Connection;
 use std::{env, error::Error};
 
 const RATE_LIMIT: usize = 2000;
@@ -116,8 +115,8 @@ fn sync_imdb_title(api_key: &str, title: &str) -> SyncImdbResult {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let con = Connection::open("resources/data/nf_rated.sqlite")?;
-    let unsynceds = get_unsynced_rows(&con)?;
+    let db = Db::new()?;
+    let unsynceds = db.get_unsynced_rows()?;
     let api_key = get_api_key();
     let nunsynced = unsynceds.len();
     let amount_to_sync = RATE_LIMIT.min(nunsynced);
@@ -139,7 +138,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 let json_row = row.unwrap();
                 let synced_rated_row: RatedRow =
                     (rated_row.clone(), json_row, secs_since_creation()).into();
-                sync_row(&con, &synced_rated_row)?;
+                db.sync_row(&synced_rated_row)?;
                 eprintln!(" ✓");
             }
             SyncImdbResult {
@@ -165,7 +164,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             } => {
                 eprintln!("\nCould not find title '{}'", rated_row.title);
                 if first_sync {
-                    delete_row(&con, rated_row.id)?;
+                    db.delete_row(rated_row.id)?;
                 }
             }
             SyncImdbResult {
@@ -183,7 +182,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             } => {
                 eprintln!("\nResponse for '{}' is missing IMDB data", rated_row.title);
                 if first_sync {
-                    delete_row(&con, rated_row.id)?;
+                    db.delete_row(rated_row.id)?;
                 }
             }
         }

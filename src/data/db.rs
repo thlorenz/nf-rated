@@ -1,67 +1,28 @@
 use rusqlite::{params, Connection, Error, Result, NO_PARAMS};
 
 use crate::{core::RatedRow, data::rated_row_from_row};
-use std::time::SystemTime;
 
-const CREATE_SECS: u64 = 1599939357;
+const CREATE_TABLE_QUERY: &str = "CREATE TABLE IF NOT EXISTS nf_imdb (
+    id               INTEGER PRIMARY KEY,
+    title            TEXT NOT NULL,
+    year             INTEGER NOT NULL,
+    cast             TEXT NOT NULL,
+    country          TEXT NOT NULL,
+    director         TEXT NOT NULL,
+    type             TEXT NOT NULL,
+    duration         TEXT NOT NULL,
+    plot             TEXT NOT NULL,
 
-pub fn secs_since_creation() -> u32 {
-    let since_epoch = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
+    genre            TEXT,
+    writer           TEXT,
+    language         TEXT,
 
-    // This hack will work for about 136 years
-    (since_epoch - CREATE_SECS) as u32
-}
+    imdb_rating      INTEGER,
+    imdb_votes       INTEGER,
+    imdb_id          TEXT,
 
-pub fn create_table(con: &Connection) -> Result<usize> {
-    // CSV data
-    // - id             show_id
-    // - title          title
-    // - year           release_year
-    // - cast           cast
-    // - country        country
-    // - director       director
-
-    // Combination (JSON if available otherwise CSV)
-    // - type           (Type, type)
-    // - duration       (Runtime, duration)
-    // - plot           (Plot, description)
-
-    // JSON
-    // - genre          Genre
-    // - language       Language
-    // - writer         Writer
-    // - imdb_rating    imdbRating (multiplied by 10 -> 0..100)
-    // - imdb_votes     imdbVotes
-    // - imdb_id        imdbID -> URL https://www.imdb.com/title/<imdb_id>
-    con.execute(
-        // CSV data
-        "CREATE TABLE IF NOT EXISTS nf_imdb (
-           id               INTEGER PRIMARY KEY,
-           title            TEXT NOT NULL,
-           year             INTEGER NOT NULL,
-           cast             TEXT NOT NULL,
-           country          TEXT NOT NULL,
-           director         TEXT NOT NULL,
-           type             TEXT NOT NULL,
-           duration         TEXT NOT NULL,
-           plot             TEXT NOT NULL,
-
-           genre            TEXT,
-           writer           TEXT,
-           language         TEXT,
-
-           imdb_rating      INTEGER,
-           imdb_votes       INTEGER,
-           imdb_id          TEXT,
-
-           last_sync        INTEGER
-        )",
-        NO_PARAMS,
-    )
-}
+    last_sync        INTEGER
+)";
 
 const UPSERT_QUERY: &str = "INSERT INTO nf_imdb (
     id          ,
@@ -86,37 +47,6 @@ const UPSERT_QUERY: &str = "INSERT INTO nf_imdb (
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
 ON CONFLICT (id) DO NOTHING;
 ";
-
-pub fn upsert_row(con: &Connection, row: &RatedRow) -> Result<usize> {
-    con.execute(
-        UPSERT_QUERY,
-        params![
-            row.id,
-            row.title,
-            row.year,
-            row.cast,
-            row.country,
-            row.director,
-            row.typ,
-            row.duration,
-            row.plot,
-            row.genre,
-            row.writer,
-            row.language,
-            row.imdb_rating,
-            row.imdb_votes,
-            row.imdb_id,
-            row.last_sync
-        ],
-    )
-}
-
-const SELECT_UNSYNCED_QUERY: &str = "SELECT * FROM nf_imdb WHERE last_sync IS NULL;";
-pub fn get_unsynced_rows(con: &Connection) -> Result<Vec<RatedRow>, Error> {
-    let mut stmt = con.prepare(SELECT_UNSYNCED_QUERY)?;
-    let iter = stmt.query_map(NO_PARAMS, |row| Ok(rated_row_from_row(&row)))?;
-    iter.collect()
-}
 
 const SYNC_QUERY: &str = "UPDATE nf_imdb
     SET
@@ -143,31 +73,105 @@ const SYNC_QUERY: &str = "UPDATE nf_imdb
         id = ?1;
 ";
 
-pub fn sync_row(con: &Connection, row: &RatedRow) -> Result<usize> {
-    con.execute(
-        SYNC_QUERY,
-        params![
-            row.id,
-            row.title,
-            row.year,
-            row.cast,
-            row.country,
-            row.director,
-            row.typ,
-            row.duration,
-            row.plot,
-            row.genre,
-            row.writer,
-            row.language,
-            row.imdb_rating,
-            row.imdb_votes,
-            row.imdb_id,
-            row.last_sync
-        ],
-    )
+const SELECT_UNSYNCED_QUERY: &str = "SELECT * FROM nf_imdb WHERE last_sync IS NULL;";
+const DELETE_ROW_QUERY: &str = "DELETE FROM nf_imdb WHERE id = ?1;";
+const SELECT_ALL_QUERY: &str = "SELECT * FROM nf_imdb;";
+
+pub struct Db {
+    con: Connection,
 }
 
-const DELETE_ROW_QUERY: &str = "DELETE FROM nf_imdb WHERE id = ?1;";
-pub fn delete_row(con: &Connection, id: u32) -> Result<usize> {
-    con.execute(DELETE_ROW_QUERY, params![id])
+impl Db {
+    pub fn new() -> Result<Db> {
+        let con = Connection::open("resources/data/nf_rated.sqlite")?;
+        Ok(Self { con })
+    }
+
+    pub fn create_table(&self) -> Result<usize> {
+        // CSV data
+        // - id             show_id
+        // - title          title
+        // - year           release_year
+        // - cast           cast
+        // - country        country
+        // - director       director
+
+        // Combination (JSON if available otherwise CSV)
+        // - type           (Type, type)
+        // - duration       (Runtime, duration)
+        // - plot           (Plot, description)
+
+        // JSON
+        // - genre          Genre
+        // - language       Language
+        // - writer         Writer
+        // - imdb_rating    imdbRating (multiplied by 10 -> 0..100)
+        // - imdb_votes     imdbVotes
+        // - imdb_id        imdbID -> URL https://www.imdb.com/title/<imdb_id>
+        self.con.execute(CREATE_TABLE_QUERY, NO_PARAMS)
+    }
+
+    pub fn upsert_row(&self, row: &RatedRow) -> Result<usize> {
+        self.con.execute(
+            UPSERT_QUERY,
+            params![
+                row.id,
+                row.title,
+                row.year,
+                row.cast,
+                row.country,
+                row.director,
+                row.typ,
+                row.duration,
+                row.plot,
+                row.genre,
+                row.writer,
+                row.language,
+                row.imdb_rating,
+                row.imdb_votes,
+                row.imdb_id,
+                row.last_sync
+            ],
+        )
+    }
+
+    pub fn get_unsynced_rows(&self) -> Result<Vec<RatedRow>, Error> {
+        let mut stmt = self.con.prepare(SELECT_UNSYNCED_QUERY)?;
+        let iter = stmt.query_map(NO_PARAMS, |row| Ok(rated_row_from_row(&row)))?;
+        iter.collect()
+    }
+
+    pub fn sync_row(&self, row: &RatedRow) -> Result<usize> {
+        self.con.execute(
+            SYNC_QUERY,
+            params![
+                row.id,
+                row.title,
+                row.year,
+                row.cast,
+                row.country,
+                row.director,
+                row.typ,
+                row.duration,
+                row.plot,
+                row.genre,
+                row.writer,
+                row.language,
+                row.imdb_rating,
+                row.imdb_votes,
+                row.imdb_id,
+                row.last_sync
+            ],
+        )
+    }
+
+    pub fn delete_row(&self,id: u32) -> Result<usize> {
+        self.con.execute(DELETE_ROW_QUERY, params![id])
+    }
+
+    pub fn get_all_rows(&self) -> Result<Vec<RatedRow>, Error> {
+        let mut stmt = self.con.prepare(SELECT_ALL_QUERY)?;
+        let iter = stmt.query_map(NO_PARAMS, |row| Ok(rated_row_from_row(&row)))?;
+        iter.collect()
+    } 
 }
