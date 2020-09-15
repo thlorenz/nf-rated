@@ -1,10 +1,12 @@
-use nf_rated::{data::Db, render::Event, render::Events, render::StatefulList, RatedRow};
+use nf_rated::{
+    data::Db, render::maybe_render_item_details, render::render_rows_summary, render::Event,
+    render::Events, render::StatefulList, RatedRow,
+};
 use std::{error::Error, io};
 use termion::{event::Key, input::MouseTerminal, raw::IntoRawMode, screen::AlternateScreen};
 use tui::{
-    backend::TermionBackend, layout::Constraint, layout::Direction, layout::Layout, layout::Rect,
-    style::Color, style::Modifier, style::Style, text::Span, text::Spans, widgets::Block,
-    widgets::Borders, widgets::List, widgets::ListItem, Terminal,
+    backend::Backend, backend::TermionBackend, layout::Constraint, layout::Direction,
+    layout::Layout, layout::Rect, widgets::Block, widgets::Borders, Frame, Terminal,
 };
 
 const PAGE_MARGIN_HEIGHT: i32 = 3;
@@ -21,42 +23,20 @@ impl App {
     }
 }
 
-fn shortened_type(typ: &str) -> &str {
-    let s = typ.to_lowercase();
-    match &s[..] {
-        "movie" => "M",
-        "series" => "S",
-        _ => "X",
-    }
-}
+fn render_summary_and_config<B>(f: &mut Frame<B>, app: &mut App, container: Rect)
+where
+    B: Backend,
+{
+    let items = render_rows_summary(&app.items.items);
 
-fn render_summary_row(row: &RatedRow) -> ListItem {
-    let bar = Span::raw(" | ");
-    let spc = Span::raw(" ");
+    let config = Block::default().title(" Config ").borders(Borders::ALL);
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)].as_ref())
+        .split(container);
 
-    assert!(
-        row.imdb_rating.is_some(),
-        "cannot render row without a rating",
-    );
-    let rating = row.imdb_rating.unwrap();
-    let rating_style = match rating {
-        n if n >= 90 => Style::default().fg(Color::LightGreen),
-        n if n >= 80 => Style::default().fg(Color::Green),
-        n if n >= 70 => Style::default().fg(Color::LightYellow),
-        n if n >= 60 => Style::default().fg(Color::Yellow),
-        n if n >= 50 => Style::default().fg(Color::LightBlue),
-        n if n >= 40 => Style::default().fg(Color::LightRed),
-        _ => Style::default().fg(Color::LightRed),
-    };
-    let rating_span = Span::styled(format!("{:2.1}", rating as f32 / 10.0), rating_style);
-
-    let title_style = Style::default().fg(Color::White);
-    let title_span = Span::styled(&row.title, title_style);
-    let typ_style = Style::default().fg(Color::Magenta);
-    let typ_span = Span::styled(shortened_type(&row.typ), typ_style);
-    let header = Spans::from(vec![typ_span, spc, rating_span, bar, title_span]);
-
-    ListItem::new(vec![header])
+    f.render_widget(config, chunks[0]);
+    f.render_stateful_widget(items, chunks[1], &mut app.items.state);
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -70,31 +50,29 @@ fn main() -> Result<(), Box<dyn Error>> {
     let db = Db::new()?;
     let all_rows = db.get_synced_rows_sorted_by_rating()?;
     let mut app = App::new(all_rows);
+    // app.items.state.select(Some(0));
 
     let mut current_size: Rect = Default::default();
     loop {
-        terminal.draw(|f| {
+        terminal.draw(|mut f| {
             current_size = f.size();
-            let chunks = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints([Constraint::Percentage(30), Constraint::Percentage(70)].as_ref())
+            let main_container = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Percentage(70), Constraint::Percentage(30)].as_ref())
                 .split(current_size);
 
-            let rendered_rows: Vec<ListItem> = app
-                .items
-                .items
-                .iter()
-                .map(|row| render_summary_row(row))
-                .collect();
+            let summary_and_config_container = main_container[0];
+            let item_details_container = main_container[1];
 
-            let items = List::new(rendered_rows)
-                .block(Block::default().borders(Borders::ALL))
-                .highlight_style(
-                    Style::default()
-                        .bg(Color::DarkGray)
-                        .add_modifier(Modifier::BOLD),
-                );
-            f.render_stateful_widget(items, chunks[0], &mut app.items.state);
+            render_summary_and_config(&mut f, &mut app, summary_and_config_container);
+
+            let selected_idx = app.items.state.selected();
+            let item_details = if selected_idx.is_none() {
+                maybe_render_item_details(None)
+            } else {
+                maybe_render_item_details(app.items.items.get(selected_idx.unwrap()))
+            };
+            f.render_widget(item_details, item_details_container);
         })?;
 
         match events.next()? {
