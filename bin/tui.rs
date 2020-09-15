@@ -77,14 +77,20 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         match events.next()? {
             Event::Input(input) => match input {
-                Key::Char('q') => {
+                Key::Esc => {
                     break;
                 }
-                Key::Down => {
+                Key::Down | Key::Ctrl('n') => {
                     app.items.next();
                 }
-                Key::Up => {
+                Key::Up | Key::Ctrl('p') => {
                     app.items.previous();
+                }
+                Key::Ctrl('d') => {
+                    app.items.next_page();
+                }
+                Key::Ctrl('u') => {
+                    app.items.previous_page();
                 }
                 _ => {}
             },

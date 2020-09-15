@@ -20,32 +20,45 @@ impl<T> StatefulList<T> {
         }
     }
 
-    pub fn next(&mut self) {
+    pub fn advance_by(&mut self, delta: i32) {
+        let nitems = self.items.len() as i32;
         let i = match self.state.selected() {
             Some(i) => {
-                if i >= self.items.len() - 1 {
+                if (i as i32) >= nitems - delta {
                     0
                 } else {
-                    i + 1
+                    i as i32 + delta
                 }
             }
             None => 0,
         };
-        self.state.select(Some(i));
+        let clamped = if i < 0 {
+            (nitems + i).max(0)
+        } else {
+            if i > nitems {
+                nitems - i
+            } else {
+                i
+            }
+        };
+        self.state.select(Some(clamped as usize));
+    }
+
+    pub fn next(&mut self) {
+        self.advance_by(1)
+    }
+
+    pub fn next_page(&mut self) {
+        // TODO: find a way to determine how many items fit in a page
+        self.advance_by(20)
     }
 
     pub fn previous(&mut self) {
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i == 0 {
-                    self.items.len() - 1
-                } else {
-                    i - 1
-                }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
+        self.advance_by(-1)
+    }
+
+    pub fn previous_page(&mut self) {
+        self.advance_by(-20)
     }
 
     pub fn unselect(&mut self) {
