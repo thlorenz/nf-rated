@@ -1,9 +1,11 @@
 use tui::{
     style::Color, style::Modifier, style::Style, text::Span, text::Spans, widgets::Block,
-    widgets::Borders, widgets::List, widgets::ListItem,
+    widgets::Borders, widgets::List, widgets::ListItem, widgets::Paragraph, widgets::Wrap,
 };
 
 use crate::RatedRow;
+
+use super::util::get_rating_style;
 
 pub fn maybe_render_item_details(row: Option<&RatedRow>) -> List {
     // TODO: forget about the block for now but need to fix ASAP
@@ -27,30 +29,59 @@ fn render_please_select_row() -> Vec<ListItem<'static>> {
     vec![ListItem::new(vec![header]).to_owned()]
 }
 
+const N_A: &str = "N/A";
+
 fn render_row_summary(row: &RatedRow) -> Vec<ListItem> {
-    // TODO: For now just rendering summary but need to render details
     let bar = Span::raw(" | ");
+    let spc = Span::raw(" ");
 
     assert!(
         row.imdb_rating.is_some(),
         "cannot render row without a rating",
     );
     let rating = row.imdb_rating.unwrap();
-    let rating_style = match rating {
-        n if n >= 90 => Style::default().fg(Color::LightGreen),
-        n if n >= 80 => Style::default().fg(Color::Green),
-        n if n >= 70 => Style::default().fg(Color::LightYellow),
-        n if n >= 60 => Style::default().fg(Color::Yellow),
-        n if n >= 50 => Style::default().fg(Color::LightBlue),
-        n if n >= 40 => Style::default().fg(Color::LightRed),
-        _ => Style::default().fg(Color::LightRed),
-    };
-    let rating_span = Span::styled(format!("{:2.1}", rating as f32 / 10.0), rating_style);
+    let rating_style = get_rating_style(rating);
+    let rating_span = Span::styled(format!(" {:2.1}", rating as f32 / 10.0), rating_style);
 
     let title_style = Style::default().fg(Color::White);
     let title_span = Span::styled(&row.title, title_style);
-    let header = Spans::from(vec![rating_span, bar, title_span]);
+    let year_style = Style::default().fg(Color::DarkGray);
+    let year_span = Span::styled(format!("({})", row.year), year_style);
+    let duration_style = Style::default().fg(Color::DarkGray);
+    let duration_span = Span::styled(&row.duration, duration_style);
 
-    vec![ListItem::new(vec![header])]
+    let genre_style = Style::default().fg(Color::LightBlue);
+    let genre_span = match &row.genre {
+        Some(x) => Span::styled(x, genre_style),
+        None => Span::styled(N_A, genre_style),
+    };
+
+    let cast_style = Style::default().fg(Color::Blue);
+    let cast_span = Span::styled(&row.cast, cast_style);
+
+    let plot_style = Style::default().fg(Color::White);
+    let plot_span = Span::styled(&row.plot, plot_style);
+
+    // TODO: how/where can we add the plot as paragraph instead of a list item
+    // let plot_para = Paragraph::new(plot_span).wrap(Wrap { trim: true });
+
+    // TODO: add netflix + imdb links as spans
+
+    vec![
+        ListItem::new(Spans(vec![
+            rating_span,
+            bar.clone(),
+            duration_span,
+            bar.clone(),
+            title_span,
+            spc.clone(),
+            year_span,
+        ])),
+        ListItem::new(Spans(vec![])),
+        ListItem::new(genre_span),
+        ListItem::new(cast_span),
+        ListItem::new(Spans(vec![])),
+        ListItem::new(plot_span),
+    ]
 }
 

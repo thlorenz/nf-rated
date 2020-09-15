@@ -50,7 +50,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let db = Db::new()?;
     let all_rows = db.get_synced_rows_sorted_by_rating()?;
     let mut app = App::new(all_rows);
-    // app.items.state.select(Some(0));
+    app.items.state.select(Some(0));
 
     let mut current_size: Rect = Default::default();
     loop {
