@@ -7,6 +7,8 @@ use tui::{
     widgets::Borders, widgets::List, widgets::ListItem, Terminal,
 };
 
+const PAGE_MARGIN_HEIGHT: i32 = 3;
+
 struct App {
     items: StatefulList<RatedRow>,
 }
@@ -19,7 +21,19 @@ impl App {
     }
 }
 
-fn render_row(row: &RatedRow) -> ListItem {
+fn shortened_type(typ: &str) -> &str {
+    let s = typ.to_lowercase();
+    match &s[..] {
+        "movie" => "M",
+        "series" => "S",
+        _ => "X",
+    }
+}
+
+fn render_summary_row(row: &RatedRow) -> ListItem {
+    let bar = Span::raw(" | ");
+    let spc = Span::raw(" ");
+
     assert!(
         row.imdb_rating.is_some(),
         "cannot render row without a rating",
@@ -38,7 +52,9 @@ fn render_row(row: &RatedRow) -> ListItem {
 
     let title_style = Style::default().fg(Color::White);
     let title_span = Span::styled(&row.title, title_style);
-    let header = Spans::from(vec![rating_span, Span::raw(" | "), title_span]);
+    let typ_style = Style::default().fg(Color::Magenta);
+    let typ_span = Span::styled(shortened_type(&row.typ), typ_style);
+    let header = Spans::from(vec![typ_span, spc, rating_span, bar, title_span]);
 
     ListItem::new(vec![header])
 }
@@ -64,8 +80,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .constraints([Constraint::Percentage(30), Constraint::Percentage(70)].as_ref())
                 .split(current_size);
 
-            let rendered_rows: Vec<ListItem> =
-                app.items.items.iter().map(|row| render_row(row)).collect();
+            let rendered_rows: Vec<ListItem> = app
+                .items
+                .items
+                .iter()
+                .map(|row| render_summary_row(row))
+                .collect();
 
             let items = List::new(rendered_rows)
                 .block(Block::default().borders(Borders::ALL))
@@ -89,11 +109,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                     app.items.previous();
                 }
                 Key::Ctrl('d') => {
-                    app.items.next_page((current_size.height as i32 - 3).max(1));
+                    app.items
+                        .next_page((current_size.height as i32 - PAGE_MARGIN_HEIGHT).max(1));
                 }
                 Key::Ctrl('u') => {
                     app.items
-                        .previous_page((current_size.height as i32 - 3).max(1));
+                        .previous_page((current_size.height as i32 - PAGE_MARGIN_HEIGHT).max(1));
                 }
                 _ => {}
             },
