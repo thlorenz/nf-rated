@@ -48,17 +48,16 @@ impl<T> StatefulList<T> {
         self.advance_by(1)
     }
 
-    pub fn next_page(&mut self) {
-        // TODO: find a way to determine how many items fit in a page
-        self.advance_by(20)
+    pub fn next_page(&mut self, height: i32) {
+        self.advance_by(height)
     }
 
     pub fn previous(&mut self) {
         self.advance_by(-1)
     }
 
-    pub fn previous_page(&mut self) {
-        self.advance_by(-20)
+    pub fn previous_page(&mut self, height: i32) {
+        self.advance_by(-height)
     }
 
     pub fn unselect(&mut self) {

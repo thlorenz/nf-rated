@@ -2,9 +2,9 @@ use nf_rated::{data::Db, render::Event, render::Events, render::StatefulList, Ra
 use std::{error::Error, io};
 use termion::{event::Key, input::MouseTerminal, raw::IntoRawMode, screen::AlternateScreen};
 use tui::{
-    backend::TermionBackend, layout::Constraint, layout::Direction, layout::Layout, style::Color,
-    style::Modifier, style::Style, text::Span, text::Spans, widgets::Block, widgets::Borders,
-    widgets::List, widgets::ListItem, Terminal,
+    backend::TermionBackend, layout::Constraint, layout::Direction, layout::Layout, layout::Rect,
+    style::Color, style::Modifier, style::Style, text::Span, text::Spans, widgets::Block,
+    widgets::Borders, widgets::List, widgets::ListItem, Terminal,
 };
 
 struct App {
@@ -55,12 +55,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let all_rows = db.get_synced_rows_sorted_by_rating()?;
     let mut app = App::new(all_rows);
 
+    let mut current_size: Rect = Default::default();
     loop {
         terminal.draw(|f| {
+            current_size = f.size();
             let chunks = Layout::default()
                 .direction(Direction::Horizontal)
-                .constraints([Constraint::Percentage(100)].as_ref())
-                .split(f.size());
+                .constraints([Constraint::Percentage(30), Constraint::Percentage(70)].as_ref())
+                .split(current_size);
 
             let rendered_rows: Vec<ListItem> =
                 app.items.items.iter().map(|row| render_row(row)).collect();
@@ -87,16 +89,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                     app.items.previous();
                 }
                 Key::Ctrl('d') => {
-                    app.items.next_page();
+                    app.items.next_page((current_size.height as i32 - 3).max(1));
                 }
                 Key::Ctrl('u') => {
-                    app.items.previous_page();
+                    app.items
+                        .previous_page((current_size.height as i32 - 3).max(1));
                 }
                 _ => {}
             },
-            Event::Tick => {
-                // TODO: advance app?
-            }
+            _ => {}
         }
     }
 
