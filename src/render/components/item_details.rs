@@ -1,6 +1,6 @@
 use tui::{
     style::Color, style::Modifier, style::Style, text::Span, text::Spans, widgets::Block,
-    widgets::Borders, widgets::List, widgets::ListItem, widgets::Paragraph, widgets::Wrap,
+    widgets::Borders, widgets::List, widgets::ListItem,
 };
 
 use crate::RatedRow;
@@ -37,7 +37,11 @@ fn render_row_summary(row: &RatedRow) -> Vec<ListItem> {
 
     assert!(
         row.imdb_rating.is_some(),
-        "cannot render row without a rating",
+        "cannot render row without an imdb rating",
+    );
+    assert!(
+        row.imdb_id.is_some(),
+        "cannot render row without an imdb id",
     );
     let rating = row.imdb_rating.unwrap();
     let rating_style = get_rating_style(rating);
@@ -62,10 +66,25 @@ fn render_row_summary(row: &RatedRow) -> Vec<ListItem> {
     let plot_style = Style::default().fg(Color::White);
     let plot_span = Span::styled(&row.plot, plot_style);
 
+    let imdblink_style = Style::default().fg(Color::Blue);
+    let imdblink_span = Span::styled(
+        format!(
+            "https://www.imdb.com/title/{}/",
+            &row.imdb_id.as_ref().unwrap()
+        ),
+        imdblink_style,
+    );
+    let netflixlink_style = Style::default().fg(Color::Blue);
+    let netflixlink_span = Span::styled(
+        format!("https://www.netflix.com/watch/{:?}/", &row.id),
+        netflixlink_style,
+    );
+
+    let country_style = Style::default().fg(Color::LightGreen);
+    let country_span = Span::styled(&row.country, country_style);
+
     // TODO: how/where can we add the plot as paragraph instead of a list item
     // let plot_para = Paragraph::new(plot_span).wrap(Wrap { trim: true });
-
-    // TODO: add netflix + imdb links as spans
 
     vec![
         ListItem::new(Spans(vec![
@@ -78,10 +97,12 @@ fn render_row_summary(row: &RatedRow) -> Vec<ListItem> {
             year_span,
         ])),
         ListItem::new(Spans(vec![])),
-        ListItem::new(genre_span),
+        ListItem::new(Spans(vec![genre_span, bar, country_span])),
         ListItem::new(cast_span),
         ListItem::new(Spans(vec![])),
         ListItem::new(plot_span),
+        ListItem::new(Spans(vec![])),
+        ListItem::new(imdblink_span),
+        ListItem::new(netflixlink_span),
     ]
 }
-
