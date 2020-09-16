@@ -4,10 +4,7 @@ use tui::{
 };
 
 use crate::render::{App, InputMode};
-
-/*
- * pub fn render_config() -> Paragraph { }
- */
+use tui::widgets::BorderType;
 
 pub fn render_admin<B>(f: &mut Frame<B>, app: &App, container: Rect)
 where
@@ -21,6 +18,14 @@ where
         .split(container);
     let query_container = chunks[0];
     f.render_widget(query, query_container);
+
+
+    f.set_cursor(
+        // Put cursor past the end of the input text
+        query_container.x + app.query.len() as u16 + 1,
+        // Move one line down, from the border to the input line
+        query_container.y + 1,
+    );
 }
 
 fn render_query(query: &str, input_mode: InputMode) -> Paragraph {
@@ -29,6 +34,6 @@ fn render_query(query: &str, input_mode: InputMode) -> Paragraph {
             InputMode::Configuring => Style::default(),
             InputMode::Querying => Style::default().fg(Color::Yellow),
         })
-        .block(Block::default().borders(Borders::ALL).title("Query"));
+        .block(Block::default().borders(Borders::ALL).border_type(BorderType::Rounded).title("Query"));
     input
 }

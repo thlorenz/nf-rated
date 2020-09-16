@@ -35,7 +35,7 @@ const UPSERT_QUERY: &str = "INSERT INTO nf_imdb (
     duration    ,
     plot        ,
 
-    genre       , 
+    genre       ,
     writer      ,
     language    ,
 
@@ -51,22 +51,22 @@ ON CONFLICT (id) DO NOTHING;
 const SYNC_QUERY: &str = "UPDATE nf_imdb
     SET
         id         = ?1,
-        title      = ?2 ,
-        year       = ?3 ,
-        cast       = ?4 ,
-        country    = ?5 ,
-        director   = ?6 ,
-        type       = ?7 ,
-        duration   = ?8 ,
-        plot       = ?9 ,
+        title      = ?2,
+        year       = ?3,
+        cast       = ?4,
+        country    = ?5,
+        director   = ?6,
+        type       = ?7,
+        duration   = ?8,
+        plot       = ?9,
 
-        genre      = ?10 , 
-        writer     = ?11 ,
-        language   = ?12 ,
+        genre      = ?10,
+        writer     = ?11,
+        language   = ?12,
 
-        imdb_rating= ?13 ,
-        imdb_votes = ?14 ,
-        imdb_id    = ?15 ,
+        imdb_rating= ?13,
+        imdb_votes = ?14,
+        imdb_id    = ?15,
 
         last_sync  = ?16
     WHERE
@@ -79,6 +79,13 @@ const DELETE_ROW_QUERY: &str = "DELETE FROM nf_imdb WHERE id = ?1;";
 const SELECT_ALL_QUERY: &str = "SELECT * FROM nf_imdb;";
 const SELECT_SYNCED_SORTED_BY_RATING_QUERY: &str =
     "SELECT * FROM nf_imdb WHERE last_sync IS NOT NULL ORDER BY imdb_rating DESC;";
+const SELECT_SYNCED_MATCHING_GENRE: &str = "SELECT * FROM nf_imdb
+ WHERE
+   genre LIKE ?1
+ AND
+   last_sync IS NOT NULL
+ ORDER BY
+   imdb_rating DESC;";
 
 pub struct Db {
     con: Connection,
@@ -150,9 +157,15 @@ impl Db {
         iter.collect()
     }
 
-    pub fn get_synced_rows_sorted_by_rating(&self) -> Result<Vec<RatedRow>, Error> {
+    pub fn get_synced_rows_sorted(&self) -> Result<Vec<RatedRow>, Error> {
         let mut stmt = self.con.prepare(SELECT_SYNCED_SORTED_BY_RATING_QUERY)?;
         let iter = stmt.query_map(NO_PARAMS, |row| Ok(rated_row_from_row(&row)))?;
+        iter.collect()
+    }
+
+    pub fn get_synced_rows_for_genre_sorted(&self, query: &str) -> Result<Vec<RatedRow>, Error> {
+        let mut stmt = self.con.prepare(SELECT_SYNCED_MATCHING_GENRE)?;
+        let iter = stmt.query_map(params![format!("%{}%", query)], |row| Ok(rated_row_from_row(&row)))?;
         iter.collect()
     }
 

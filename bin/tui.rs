@@ -8,6 +8,7 @@ use tui::{
     backend::Backend, backend::TermionBackend, layout::Constraint, layout::Direction,
     layout::Layout, layout::Rect, Frame, Terminal,
 };
+use nf_rated::render::StatefulList;
 
 const PAGE_MARGIN_HEIGHT: i32 = 3;
 
@@ -30,6 +31,20 @@ where
     f.render_stateful_widget(items, summary_container, list_state);
 }
 
+fn exec_query(app: &mut App, db: &Db) -> Result<(), Box<dyn Error>> {
+    let rows =  match app.query.len() {
+        0 => db.get_synced_rows_sorted()?,
+        _ => db.get_synced_rows_for_genre_sorted(&app.query)?,
+    };
+    app.items.unselect();
+    app.items.items = rows;
+    if !app.items.items.is_empty() {
+        app.items.next()
+    }
+    Ok(())
+}
+
+
 fn main() -> Result<(), Box<dyn Error>> {
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = MouseTerminal::from(stdout);
@@ -39,7 +54,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let events = Events::new();
 
     let db = Db::new()?;
-    let all_rows = db.get_synced_rows_sorted_by_rating()?;
+    let all_rows = db.get_synced_rows_sorted()?;
     let mut app = App::new(all_rows);
     app.items.state.select(Some(0));
 
@@ -85,7 +100,16 @@ fn main() -> Result<(), Box<dyn Error>> {
                     app.items
                         .previous_page((current_size.height as i32 - PAGE_MARGIN_HEIGHT).max(1));
                 }
-                _ => {}
+                Key::Backspace => {
+                    app.query.pop();
+                    exec_query(&mut app, &db)?;
+                },
+                Key::Char(c) => {
+                    app.query.push(c);
+                    exec_query(&mut app, &db)?;
+                }
+                _ => { }
+
             },
             _ => {}
         }
