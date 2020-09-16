@@ -1,42 +1,33 @@
 use nf_rated::{
-    data::Db, render::maybe_render_item_details, render::render_rows_summary, render::Event,
-    render::Events, render::StatefulList, RatedRow,
+    data::Db, render::maybe_render_item_details, render::render_admin, render::render_rows_summary,
+    render::App, render::Event, render::Events,
 };
 use std::{error::Error, io};
 use termion::{event::Key, input::MouseTerminal, raw::IntoRawMode, screen::AlternateScreen};
 use tui::{
     backend::Backend, backend::TermionBackend, layout::Constraint, layout::Direction,
-    layout::Layout, layout::Rect, widgets::Block, widgets::Borders, Frame, Terminal,
+    layout::Layout, layout::Rect, Frame, Terminal,
 };
 
 const PAGE_MARGIN_HEIGHT: i32 = 3;
 
-struct App {
-    items: StatefulList<RatedRow>,
-}
-
-impl App {
-    fn new(rows: Vec<RatedRow>) -> Self {
-        Self {
-            items: StatefulList::with_items(rows),
-        }
-    }
-}
-
-fn render_summary_and_config<B>(f: &mut Frame<B>, app: &mut App, container: Rect)
+fn render_summary_and_admin<B>(f: &mut Frame<B>, app: &mut App, container: Rect)
 where
     B: Backend,
 {
     let items = render_rows_summary(&app.items.items);
 
-    let config = Block::default().title(" Config ").borders(Borders::ALL);
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(40), Constraint::Percentage(60)].as_ref())
         .split(container);
 
-    f.render_widget(config, chunks[0]);
-    f.render_stateful_widget(items, chunks[1], &mut app.items.state);
+    let admin_container = chunks[0];
+    let summary_container = chunks[1];
+
+    render_admin(f, app, admin_container);
+    let list_state = &mut app.items.state;
+    f.render_stateful_widget(items, summary_container, list_state);
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -64,7 +55,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let summary_and_config_container = main_container[0];
             let item_details_container = main_container[1];
 
-            render_summary_and_config(&mut f, &mut app, summary_and_config_container);
+            render_summary_and_admin(&mut f, &mut app, summary_and_config_container);
 
             let selected_idx = app.items.state.selected();
             let item_details = if selected_idx.is_none() {

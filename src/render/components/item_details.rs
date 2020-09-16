@@ -85,6 +85,7 @@ fn render_row_summary(row: &RatedRow) -> Vec<ListItem> {
 
     // TODO: how/where can we add the plot as paragraph instead of a list item
     // let plot_para = Paragraph::new(plot_span).wrap(Wrap { trim: true });
+    // see tui-rs/examples/demo/ui.rs:271
 
     vec![
         ListItem::new(Spans(vec![
