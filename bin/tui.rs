@@ -1,6 +1,7 @@
 use nf_rated::{
-    data::Db, render::maybe_render_item_details, render::render_admin, render::render_rows_summary,
-    render::App, render::Event, render::Events,
+    data::build_sorted_query, data::Db, render::maybe_render_item_details, render::render_admin,
+    render::render_log, render::render_rows_summary, render::App, render::Event, render::Events,
+    render::Log,
 };
 use std::{error::Error, io};
 use termion::{event::Key, input::MouseTerminal, raw::IntoRawMode, screen::AlternateScreen};
@@ -8,9 +9,9 @@ use tui::{
     backend::Backend, backend::TermionBackend, layout::Constraint, layout::Direction,
     layout::Layout, layout::Rect, Frame, Terminal,
 };
-use nf_rated::render::StatefulList;
 
 const PAGE_MARGIN_HEIGHT: i32 = 3;
+const SHOW_LOG: bool = true;
 
 fn render_summary_and_admin<B>(f: &mut Frame<B>, app: &mut App, container: Rect)
 where
@@ -32,10 +33,15 @@ where
 }
 
 fn exec_query(app: &mut App, db: &Db) -> Result<(), Box<dyn Error>> {
-    let rows =  match app.query.len() {
-        0 => db.get_synced_rows_sorted()?,
-        _ => db.get_synced_rows_for_genre_sorted(&app.query)?,
-    };
+    let rows = if app.query.is_empty() {
+        db.get_synced_rows_sorted()
+    } else {
+        let q = build_sorted_query(&app.column, &app.query);
+        app.logs.push(Log::Debug(q.to_string()));
+        db.get_synced_rows_sorted()
+        // db.get_synced_rows_for_query_sorted(&app.column, &app.query)
+    }?;
+
     app.items.unselect();
     app.items.items = rows;
     if !app.items.items.is_empty() {
@@ -43,7 +49,6 @@ fn exec_query(app: &mut App, db: &Db) -> Result<(), Box<dyn Error>> {
     }
     Ok(())
 }
-
 
 fn main() -> Result<(), Box<dyn Error>> {
     let stdout = io::stdout().into_raw_mode()?;
@@ -59,16 +64,30 @@ fn main() -> Result<(), Box<dyn Error>> {
     app.items.state.select(Some(0));
 
     let mut current_size: Rect = Default::default();
+    let constraints = if SHOW_LOG {
+        vec![
+            Constraint::Percentage(60),
+            Constraint::Percentage(25),
+            Constraint::Percentage(15),
+        ]
+    } else {
+        vec![Constraint::Percentage(70), Constraint::Percentage(30)]
+    };
+
     loop {
         terminal.draw(|mut f| {
             current_size = f.size();
             let main_container = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([Constraint::Percentage(70), Constraint::Percentage(30)].as_ref())
+                .constraints(constraints.as_ref())
                 .split(current_size);
 
-            let summary_and_config_container = main_container[0];
-            let item_details_container = main_container[1];
+            let (summary_and_config_container, item_details_container, log_container) = if SHOW_LOG
+            {
+                (main_container[0], main_container[1], main_container[2])
+            } else {
+                (main_container[0], main_container[1], main_container[1])
+            };
 
             render_summary_and_admin(&mut f, &mut app, summary_and_config_container);
 
@@ -79,6 +98,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                 maybe_render_item_details(app.items.items.get(selected_idx.unwrap()))
             };
             f.render_widget(item_details, item_details_container);
+
+            if SHOW_LOG {
+                f.render_widget(render_log(&app.logs), log_container)
+            };
         })?;
 
         match events.next()? {
@@ -103,13 +126,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Key::Backspace => {
                     app.query.pop();
                     exec_query(&mut app, &db)?;
-                },
+                }
                 Key::Char(c) => {
                     app.query.push(c);
                     exec_query(&mut app, &db)?;
                 }
-                _ => { }
-
+                _ => {}
             },
             _ => {}
         }

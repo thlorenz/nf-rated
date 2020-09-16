@@ -2,6 +2,8 @@ use rusqlite::{params, Connection, Error, Result, NO_PARAMS};
 
 use crate::{core::RatedRow, data::rated_row_from_row};
 
+use super::build_sorted_query;
+
 const CREATE_TABLE_QUERY: &str = "CREATE TABLE IF NOT EXISTS nf_imdb (
     id               INTEGER PRIMARY KEY,
     title            TEXT NOT NULL,
@@ -79,13 +81,6 @@ const DELETE_ROW_QUERY: &str = "DELETE FROM nf_imdb WHERE id = ?1;";
 const SELECT_ALL_QUERY: &str = "SELECT * FROM nf_imdb;";
 const SELECT_SYNCED_SORTED_BY_RATING_QUERY: &str =
     "SELECT * FROM nf_imdb WHERE last_sync IS NOT NULL ORDER BY imdb_rating DESC;";
-const SELECT_SYNCED_MATCHING_GENRE: &str = "SELECT * FROM nf_imdb
- WHERE
-   genre LIKE ?1
- AND
-   last_sync IS NOT NULL
- ORDER BY
-   imdb_rating DESC;";
 
 pub struct Db {
     con: Connection,
@@ -163,9 +158,13 @@ impl Db {
         iter.collect()
     }
 
-    pub fn get_synced_rows_for_genre_sorted(&self, query: &str) -> Result<Vec<RatedRow>, Error> {
-        let mut stmt = self.con.prepare(SELECT_SYNCED_MATCHING_GENRE)?;
-        let iter = stmt.query_map(params![format!("%{}%", query)], |row| Ok(rated_row_from_row(&row)))?;
+    pub fn get_synced_rows_for_query_sorted(
+        &self,
+        column: &str,
+        query: &str,
+    ) -> Result<Vec<RatedRow>, Error> {
+        let mut stmt = self.con.prepare(&build_sorted_query(column, query))?;
+        let iter = stmt.query_map(NO_PARAMS, |row| Ok(rated_row_from_row(&row)))?;
         iter.collect()
     }
 
