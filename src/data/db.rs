@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection, Error, Result, NO_PARAMS};
+use rusqlite::{params, Connection, Error, Result, Row, NO_PARAMS};
 
 use crate::{core::RatedRow, data::rated_row_from_row};
 
@@ -158,12 +158,8 @@ impl Db {
         iter.collect()
     }
 
-    pub fn get_synced_rows_for_query_sorted(
-        &self,
-        column: &str,
-        query: &str,
-    ) -> Result<Vec<RatedRow>, Error> {
-        let mut stmt = self.con.prepare(&build_sorted_query(column, query))?;
+    pub fn get_no_params_query_result(&self, query: &str) -> Result<Vec<RatedRow>, Error> {
+        let mut stmt = self.con.prepare(query)?;
         let iter = stmt.query_map(NO_PARAMS, |row| Ok(rated_row_from_row(&row)))?;
         iter.collect()
     }

@@ -11,7 +11,7 @@ use tui::{
 };
 
 const PAGE_MARGIN_HEIGHT: i32 = 3;
-const SHOW_LOG: bool = true;
+const SHOW_LOG: bool = false;
 
 fn render_summary_and_admin<B>(f: &mut Frame<B>, app: &mut App, container: Rect)
 where
@@ -38,8 +38,14 @@ fn exec_query(app: &mut App, db: &Db) -> Result<(), Box<dyn Error>> {
     } else {
         let q = build_sorted_query(&app.column, &app.query);
         app.logs.push(Log::Debug(q.to_string()));
-        db.get_synced_rows_sorted()
-        // db.get_synced_rows_for_query_sorted(&app.column, &app.query)
+
+        match db.get_no_params_query_result(&q) {
+            Ok(rows) => Ok(rows),
+            Err(err) => {
+                app.logs.push(Log::Error(err.to_string()));
+                db.get_synced_rows_sorted()
+            }
+        }
     }?;
 
     app.items.unselect();

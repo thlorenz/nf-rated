@@ -13,15 +13,20 @@ pub fn build_sorted_query(column: &str, query: &str) -> String {
     let mut first = true;
     let filters: Vec<String> = terms
         .filter_map(|term| match term.chars().nth(0) {
-            Some(c) => {
+            Some(c) if c == '!' => {
                 let and = if first { "" } else { " AND" };
                 first = false;
-                let (not, q) = if c == '!' {
-                    (" NOT", term.split_at(1).1)
+                let q = term.split_at(1).1;
+                if q.is_empty() {
+                    None
                 } else {
-                    ("", term)
-                };
-                Some(format!("\n {}{} {} LIKE %{}%", and, not, column, q))
+                    Some(format!("\n {} NOT {} LIKE '%{}%'", and, column, q))
+                }
+            }
+            Some(_) => {
+                let and = if first { "" } else { " AND" };
+                first = false;
+                Some(format!("\n {} {} LIKE '%{}%'", and, column, term))
             }
             None => None,
         })
@@ -39,9 +44,9 @@ mod tests {
         assert_eq!(
             build_sorted_query(&GENRE_COLUMN, "sci !adventure drama"),
             "SELECT * FROM nf_imdb WHERE
-  genre LIKE %sci%
-  AND NOT genre LIKE %adventure%
-  AND genre LIKE %drama%
+  genre LIKE '%sci%'
+  AND NOT genre LIKE '%adventure%'
+  AND genre LIKE '%drama%'
   AND last_sync IS NOT NULL ORDER BY imdb_rating DESC;"
         )
     }
@@ -51,7 +56,7 @@ mod tests {
         assert_eq!(
             build_sorted_query(&TITLE_COLUMN, "ship"),
             "SELECT * FROM nf_imdb WHERE
-  title LIKE %ship%
+  title LIKE '%ship%'
   AND last_sync IS NOT NULL ORDER BY imdb_rating DESC;"
         )
     }
@@ -61,7 +66,7 @@ mod tests {
         assert_eq!(
             build_sorted_query(&COUNTRY_COLUMN, "!india"),
             "SELECT * FROM nf_imdb WHERE
-  NOT country LIKE %india%
+  NOT country LIKE '%india%'
   AND last_sync IS NOT NULL ORDER BY imdb_rating DESC;"
         )
     }
