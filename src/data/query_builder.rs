@@ -24,6 +24,7 @@ fn get_item_filter(item_type: &ItemType) -> String {
         ItemType::Both => BOTH_ITEM_FILTER.to_string(),
     }
 }
+
 pub fn build_sorted_query(item_type: &ItemType) -> String {
     let item_filter = get_item_filter(item_type).replace(" AND ", "");
     let and = match item_type {

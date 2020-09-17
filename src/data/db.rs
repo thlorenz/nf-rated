@@ -1,8 +1,6 @@
-use rusqlite::{params, Connection, Error, Result, Row, NO_PARAMS};
+use rusqlite::{params, Connection, Error, Result, NO_PARAMS};
 
 use crate::{core::RatedRow, data::rated_row_from_row};
-
-use super::build_sorted_query;
 
 const CREATE_TABLE_QUERY: &str = "CREATE TABLE IF NOT EXISTS nf_imdb (
     id               INTEGER PRIMARY KEY,
