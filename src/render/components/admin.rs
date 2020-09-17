@@ -1,34 +1,44 @@
 use tui::{
-    backend::Backend, layout::Constraint, layout::Direction, layout::Layout, layout::Rect,
-    style::Color, style::Style, text::Span, text::Spans, widgets::Block, widgets::Borders,
-    widgets::Paragraph, Frame,
+    backend::Backend,
+    layout::Constraint,
+    layout::Direction,
+    layout::Layout,
+    layout::Rect,
+    style::{Color, Style},
+    text::Span,
+    widgets::Block,
+    widgets::BorderType,
+    widgets::Borders,
+    widgets::Paragraph,
+    Frame,
 };
 
 use crate::{
     data::ItemType,
     render::{App, InputMode},
 };
-use tui::widgets::BorderType;
 
 pub fn render_admin<B>(f: &mut Frame<B>, app: &App, container: Rect)
 where
     B: Backend,
 {
-    let query = render_query(&app.query, app.input_mode.clone());
-
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(3), Constraint::Percentage(80)].as_ref())
         .split(container);
     let query_container = chunks[0];
-    f.render_widget(query, query_container);
+    let config_container = chunks[1];
 
+    let query = render_query(&app.query, app.input_mode.clone());
+    f.render_widget(query, query_container);
     f.set_cursor(
         // Put cursor past the end of the input text
         query_container.x + app.query.len() as u16 + 1,
         // Move one line down, from the border to the input line
         query_container.y + 1,
     );
+
+    render_config(f, &app, config_container);
 }
 
 fn render_query(query: &str, input_mode: InputMode) -> Paragraph {
@@ -46,14 +56,26 @@ fn render_query(query: &str, input_mode: InputMode) -> Paragraph {
     input
 }
 
-fn _render_config(item_type: &ItemType, _container: Rect) -> Spans {
+pub fn render_config<B>(f: &mut Frame<B>, app: &App, container: Rect)
+where
+    B: Backend,
+{
+    let item_type_ui = render_item_type(&app.item_type);
+    f.render_widget(item_type_ui, container);
+}
+
+fn render_item_type(item_type: &ItemType) -> Paragraph {
     let value = match item_type {
-        ItemType::Movie => "movie",
-        ItemType::Series => "series",
-        ItemType::Both => "both",
+        ItemType::Movie => "Movie",
+        ItemType::Series => "Series",
+        ItemType::Both => "Movie and Series",
     };
     let value_style = Style::default().fg(Color::LightBlue);
     let value_span = Span::styled(value, value_style);
 
-    Spans(vec![value_span])
+    Paragraph::new(value_span).block(
+        Block::default()
+            .borders(Borders::NONE)
+            .title("Type of Show <Ctrl-O>"),
+    )
 }
