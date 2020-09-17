@@ -1,4 +1,4 @@
-use crate::{data::GENRE_COLUMN, RatedRow};
+use crate::{data::ItemType, data::GENRE_COLUMN, RatedRow};
 
 use super::StatefulList;
 
@@ -19,6 +19,7 @@ pub enum Log {
 pub struct App {
     pub items: StatefulList<RatedRow>,
     pub query: String,
+    pub item_type: ItemType,
     pub logs: Vec<Log>,
     pub column: &'static str,
     pub input_mode: InputMode,
@@ -29,6 +30,7 @@ impl App {
         Self {
             items: StatefulList::with_items(rows),
             query: "".to_string(),
+            item_type: ItemType::Both,
             logs: vec![],
             input_mode: InputMode::Querying,
             column: GENRE_COLUMN.clone(),

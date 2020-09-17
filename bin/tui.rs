@@ -36,7 +36,7 @@ fn exec_query(app: &mut App, db: &Db) -> Result<(), Box<dyn Error>> {
     let rows = if app.query.is_empty() {
         db.get_synced_rows_sorted()
     } else {
-        let q = build_sorted_query(&app.column, &app.query);
+        let q = build_sorted_query(&app.column, &app.query, &app.item_type);
         app.logs.push(Log::Debug(q.to_string()));
 
         match db.get_no_params_query_result(&q) {
