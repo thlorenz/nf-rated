@@ -1,5 +1,5 @@
 const QUERY_HEAD: &str = "SELECT * FROM nf_imdb WHERE";
-const QUERY_TAIL: &str = "AND last_sync IS NOT NULL ORDER BY imdb_rating DESC;";
+const QUERY_TAIL: &str = "last_sync IS NOT NULL ORDER BY imdb_rating DESC;";
 
 pub const GENRE_COLUMN: &str = "genre";
 pub const TITLE_COLUMN: &str = "title";
@@ -24,8 +24,16 @@ fn get_item_filter(item_type: &ItemType) -> String {
         ItemType::Both => BOTH_ITEM_FILTER.to_string(),
     }
 }
+pub fn build_sorted_query(item_type: &ItemType) -> String {
+    let item_filter = get_item_filter(item_type).replace(" AND ", "");
+    let and = match item_type {
+        ItemType::Movie | ItemType::Series => "AND ",
+        ItemType::Both => "",
+    };
+    format!("{}{}\n {}{}", QUERY_HEAD, item_filter, and, QUERY_TAIL)
+}
 
-pub fn build_sorted_query(column: &str, query: &str, item_type: &ItemType) -> String {
+pub fn build_sorted_filtered_query(column: &str, query: &str, item_type: &ItemType) -> String {
     let terms = query.split_ascii_whitespace();
     let mut first = true;
     let filters: Vec<String> = terms
@@ -52,7 +60,7 @@ pub fn build_sorted_query(column: &str, query: &str, item_type: &ItemType) -> St
     let item_filter = get_item_filter(item_type);
 
     format!(
-        "{}{}{}\n  {}",
+        "{}{}{}\n  AND {}",
         QUERY_HEAD, query_filter, item_filter, QUERY_TAIL
     )
 }
@@ -63,7 +71,7 @@ mod tests {
     #[test]
     fn query_genre_sci_not_adventure_drama() {
         assert_eq!(
-            build_sorted_query(&GENRE_COLUMN, "sci !adventure drama", &ItemType::Both),
+            build_sorted_filtered_query(&GENRE_COLUMN, "sci !adventure drama", &ItemType::Both),
             "SELECT * FROM nf_imdb WHERE
   genre LIKE '%sci%'
   AND NOT genre LIKE '%adventure%'
@@ -75,7 +83,7 @@ mod tests {
     #[test]
     fn query_title_ship() {
         assert_eq!(
-            build_sorted_query(&TITLE_COLUMN, "ship", &ItemType::Both),
+            build_sorted_filtered_query(&TITLE_COLUMN, "ship", &ItemType::Both),
             "SELECT * FROM nf_imdb WHERE
   title LIKE '%ship%'
   AND last_sync IS NOT NULL ORDER BY imdb_rating DESC;"
@@ -85,7 +93,7 @@ mod tests {
     #[test]
     fn query_country_not_india() {
         assert_eq!(
-            build_sorted_query(&COUNTRY_COLUMN, "!india", &ItemType::Both),
+            build_sorted_filtered_query(&COUNTRY_COLUMN, "!india", &ItemType::Both),
             "SELECT * FROM nf_imdb WHERE
   NOT country LIKE '%india%'
   AND last_sync IS NOT NULL ORDER BY imdb_rating DESC;"
@@ -95,7 +103,7 @@ mod tests {
     #[test]
     fn query_title_ship_movies_only() {
         assert_eq!(
-            build_sorted_query(&TITLE_COLUMN, "ship", &ItemType::Movie),
+            build_sorted_filtered_query(&TITLE_COLUMN, "ship", &ItemType::Movie),
             "SELECT * FROM nf_imdb WHERE
   title LIKE '%ship%'
   AND type = 'movie'
@@ -106,7 +114,7 @@ mod tests {
     #[test]
     fn query_title_ship_series_only() {
         assert_eq!(
-            build_sorted_query(&TITLE_COLUMN, "ship", &ItemType::Series),
+            build_sorted_filtered_query(&TITLE_COLUMN, "ship", &ItemType::Series),
             "SELECT * FROM nf_imdb WHERE
   title LIKE '%ship%'
   AND type = 'series'

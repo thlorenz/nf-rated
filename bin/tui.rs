@@ -1,7 +1,7 @@
 use nf_rated::{
-    data::build_sorted_query, data::Db, render::maybe_render_item_details, render::render_admin,
-    render::render_log, render::render_rows_summary, render::App, render::Event, render::Events,
-    render::Log,
+    data::build_sorted_filtered_query, data::build_sorted_query, data::Db,
+    render::maybe_render_item_details, render::render_admin, render::render_log,
+    render::render_rows_summary, render::App, render::Event, render::Events, render::Log,
 };
 use std::{error::Error, io};
 use termion::{event::Key, input::MouseTerminal, raw::IntoRawMode, screen::AlternateScreen};
@@ -11,7 +11,6 @@ use tui::{
 };
 
 const PAGE_MARGIN_HEIGHT: i32 = 3;
-const SHOW_LOG: bool = false;
 
 fn render_summary_and_admin<B>(f: &mut Frame<B>, app: &mut App, container: Rect)
 where
@@ -34,9 +33,18 @@ where
 
 fn exec_query(app: &mut App, db: &Db) -> Result<(), Box<dyn Error>> {
     let rows = if app.query.is_empty() {
-        db.get_synced_rows_sorted()
+        let q = build_sorted_query(&app.item_type);
+        app.logs.push(Log::Debug(q.to_string()));
+
+        match db.get_no_params_query_result(&q) {
+            Ok(rows) => Ok(rows),
+            Err(err) => {
+                app.logs.push(Log::Error(err.to_string()));
+                db.get_synced_rows_sorted()
+            }
+        }
     } else {
-        let q = build_sorted_query(&app.column, &app.query, &app.item_type);
+        let q = build_sorted_filtered_query(&app.column, &app.query, &app.item_type);
         app.logs.push(Log::Debug(q.to_string()));
 
         match db.get_no_params_query_result(&q) {
@@ -57,6 +65,10 @@ fn exec_query(app: &mut App, db: &Db) -> Result<(), Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let show_log: bool = false;
+    #[cfg(feature = "log")]
+    let show_log: bool = true;
+
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = MouseTerminal::from(stdout);
     let stdout = AlternateScreen::from(stdout);
@@ -70,7 +82,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     app.items.state.select(Some(0));
 
     let mut current_size: Rect = Default::default();
-    let constraints = if SHOW_LOG {
+    let constraints = if show_log {
         vec![
             Constraint::Percentage(60),
             Constraint::Percentage(25),
@@ -88,7 +100,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .constraints(constraints.as_ref())
                 .split(current_size);
 
-            let (summary_and_config_container, item_details_container, log_container) = if SHOW_LOG
+            let (summary_and_config_container, item_details_container, log_container) = if show_log
             {
                 (main_container[0], main_container[1], main_container[2])
             } else {
@@ -105,7 +117,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             };
             f.render_widget(item_details, item_details_container);
 
-            if SHOW_LOG {
+            if show_log {
                 f.render_widget(render_log(&app.logs), log_container)
             };
         })?;
@@ -128,6 +140,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                 Key::Ctrl('u') => {
                     app.items
                         .previous_page((current_size.height as i32 - PAGE_MARGIN_HEIGHT).max(1));
+                }
+                Key::Ctrl('o') => {
+                    app.next_item_type();
+                    exec_query(&mut app, &db)?;
                 }
                 Key::Backspace => {
                     app.query.pop();

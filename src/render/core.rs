@@ -36,5 +36,14 @@ impl App {
             column: GENRE_COLUMN.clone(),
         }
     }
+
+    pub fn next_item_type(&mut self) {
+        let next_type = match self.item_type {
+            ItemType::Movie => ItemType::Series,
+            ItemType::Series => ItemType::Both,
+            ItemType::Both => ItemType::Movie,
+        };
+        self.item_type = next_type;
+    }
 }
 
