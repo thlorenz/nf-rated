@@ -32,7 +32,7 @@ where
 }
 
 fn exec_query(app: &mut App, db: &Db) -> Result<(), Box<dyn Error>> {
-    let rows = if app.query.is_empty() {
+    let rows = if app.genre_query.is_empty() {
         let q = build_sorted_query(&app.item_type);
         app.logs.push(Log::Debug(q.to_string()));
 
@@ -44,7 +44,7 @@ fn exec_query(app: &mut App, db: &Db) -> Result<(), Box<dyn Error>> {
             }
         }
     } else {
-        let q = build_sorted_filtered_query(&app.column, &app.query, &app.item_type);
+        let q = build_sorted_filtered_query(&app.column, &app.genre_query, &app.item_type);
         app.logs.push(Log::Debug(q.to_string()));
 
         match db.get_no_params_query_result(&q) {
@@ -65,9 +65,9 @@ fn exec_query(app: &mut App, db: &Db) -> Result<(), Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let show_log: bool = false;
+    let _show_log: bool = false;
     #[cfg(feature = "log")]
-    let show_log: bool = true;
+    let _show_log: bool = true;
 
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = MouseTerminal::from(stdout);
@@ -82,7 +82,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     app.items.state.select(Some(0));
 
     let mut current_size: Rect = Default::default();
-    let constraints = if show_log {
+    let constraints = if _show_log {
         vec![
             Constraint::Percentage(60),
             Constraint::Percentage(25),
@@ -100,7 +100,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .constraints(constraints.as_ref())
                 .split(current_size);
 
-            let (summary_and_config_container, item_details_container, log_container) = if show_log
+            let (summary_and_config_container, item_details_container, log_container) = if _show_log
             {
                 (main_container[0], main_container[1], main_container[2])
             } else {
@@ -117,7 +117,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             };
             f.render_widget(item_details, item_details_container);
 
-            if show_log {
+            if _show_log {
                 f.render_widget(render_log(&app.logs), log_container)
             };
         })?;
@@ -145,12 +145,18 @@ fn main() -> Result<(), Box<dyn Error>> {
                     app.next_item_type();
                     exec_query(&mut app, &db)?;
                 }
-                Key::Backspace => {
-                    app.query.pop();
-                    exec_query(&mut app, &db)?;
+                Key::Right => {
+                    app.next_query_field();
+                }
+                Key::Left => {
+                    app.prev_query_field();
                 }
                 Key::Char(c) => {
-                    app.query.push(c);
+                    app.push_onto_query(c);
+                    exec_query(&mut app, &db)?;
+                }
+                Key::Backspace => {
+                    app.pop_off_query();
                     exec_query(&mut app, &db)?;
                 }
                 _ => {}
