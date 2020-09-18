@@ -152,5 +152,14 @@ impl App {
         .iter()
         .any(|&q| is_valid_query_filter(q))
     }
+
+    pub fn clear_all_queries(&mut self) {
+        self.genre_query.clear();
+        self.title_query.clear();
+        self.cast_query.clear();
+        self.country_query.clear();
+        self.language_query.clear();
+        self.plot_query.clear();
+    }
 }
 

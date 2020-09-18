@@ -161,7 +161,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                     app.next_query_field();
                 }
                 Key::Left => {
+                    app.logs.push(Log::Info("left".to_string()));
                     app.prev_query_field();
+                }
+                Key::Ctrl('c') => {
+                    app.logs.push(Log::Info("clearing all queries".to_string()));
+                    app.clear_all_queries();
+                    exec_query(&mut app, &db)?;
                 }
                 Key::Char(c) => {
                     app.push_onto_query(c);
