@@ -44,7 +44,10 @@ fn exec_query(app: &mut App, db: &Db) -> Result<(), Box<dyn Error>> {
             }
         }
     } else {
-        let q = build_sorted_filtered_query(&app.column, &app.genre_query, &app.item_type);
+        let q = build_sorted_filtered_query(
+            vec![(app.column, &app.genre_query).into()],
+            &app.item_type,
+        );
         app.logs.push(Log::Debug(q.to_string()));
 
         match db.get_no_params_query_result(&q) {

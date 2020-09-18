@@ -1,3 +1,5 @@
+use super::ColumnFilter;
+
 const QUERY_HEAD: &str = "SELECT * FROM nf_imdb WHERE";
 const QUERY_TAIL: &str = "last_sync IS NOT NULL ORDER BY imdb_rating DESC;";
 
@@ -34,30 +36,18 @@ pub fn build_sorted_query(item_type: &ItemType) -> String {
     format!("{}{}\n {}{}", QUERY_HEAD, item_filter, and, QUERY_TAIL)
 }
 
-pub fn build_sorted_filtered_query(column: &str, query: &str, item_type: &ItemType) -> String {
-    let terms = query.split_ascii_whitespace();
-    let mut first = true;
-    let filters: Vec<String> = terms
-        .filter_map(|term| match term.chars().nth(0) {
-            Some(c) if c == '!' => {
-                let and = if first { "" } else { " AND" };
-                first = false;
-                let q = term.split_at(1).1;
-                if q.is_empty() {
-                    None
-                } else {
-                    Some(format!("\n {} NOT {} LIKE '%{}%'", and, column, q))
-                }
-            }
-            Some(_) => {
-                let and = if first { "" } else { " AND" };
-                first = false;
-                Some(format!("\n {} {} LIKE '%{}%'", and, column, term))
-            }
-            None => None,
+pub fn build_sorted_filtered_query(filters: Vec<ColumnFilter>, item_type: &ItemType) -> String {
+    let mut matched_before = false;
+    let resolved_filters: Vec<String> = filters
+        .iter()
+        .flat_map(|filter| {
+            let matches = filter.sql_fragments(matched_before);
+            matched_before = matched_before || matches.len() > 0;
+            matches
         })
         .collect();
-    let query_filter = filters.join("");
+
+    let query_filter = resolved_filters.join("");
     let item_filter = get_item_filter(item_type);
 
     format!(
@@ -72,7 +62,10 @@ mod tests {
     #[test]
     fn query_genre_sci_not_adventure_drama() {
         assert_eq!(
-            build_sorted_filtered_query(&GENRE_COLUMN, "sci !adventure drama", &ItemType::Both),
+            build_sorted_filtered_query(
+                vec![(GENRE_COLUMN, "sci !adventure drama").into()],
+                &ItemType::Both
+            ),
             "SELECT * FROM nf_imdb WHERE
   genre LIKE '%sci%'
   AND NOT genre LIKE '%adventure%'
@@ -84,7 +77,7 @@ mod tests {
     #[test]
     fn query_title_ship() {
         assert_eq!(
-            build_sorted_filtered_query(&TITLE_COLUMN, "ship", &ItemType::Both),
+            build_sorted_filtered_query(vec![(TITLE_COLUMN, "ship").into()], &ItemType::Both),
             "SELECT * FROM nf_imdb WHERE
   title LIKE '%ship%'
   AND last_sync IS NOT NULL ORDER BY imdb_rating DESC;"
@@ -94,7 +87,7 @@ mod tests {
     #[test]
     fn query_country_not_india() {
         assert_eq!(
-            build_sorted_filtered_query(&COUNTRY_COLUMN, "!india", &ItemType::Both),
+            build_sorted_filtered_query(vec![(COUNTRY_COLUMN, "!india").into()], &ItemType::Both),
             "SELECT * FROM nf_imdb WHERE
   NOT country LIKE '%india%'
   AND last_sync IS NOT NULL ORDER BY imdb_rating DESC;"
@@ -104,7 +97,7 @@ mod tests {
     #[test]
     fn query_title_ship_movies_only() {
         assert_eq!(
-            build_sorted_filtered_query(&TITLE_COLUMN, "ship", &ItemType::Movie),
+            build_sorted_filtered_query(vec![(TITLE_COLUMN, "ship").into()], &ItemType::Movie),
             "SELECT * FROM nf_imdb WHERE
   title LIKE '%ship%'
   AND type = 'movie'
@@ -115,10 +108,43 @@ mod tests {
     #[test]
     fn query_title_ship_series_only() {
         assert_eq!(
-            build_sorted_filtered_query(&TITLE_COLUMN, "ship", &ItemType::Series),
+            build_sorted_filtered_query(vec![(TITLE_COLUMN, "ship").into()], &ItemType::Series),
             "SELECT * FROM nf_imdb WHERE
   title LIKE '%ship%'
   AND type = 'series'
+  AND last_sync IS NOT NULL ORDER BY imdb_rating DESC;"
+        )
+    }
+
+    #[test]
+    fn query_title_ship_genre_sci() {
+        assert_eq!(
+            build_sorted_filtered_query(
+                vec![(TITLE_COLUMN, "ship").into(), (GENRE_COLUMN, "sci").into()],
+                &ItemType::Both
+            ),
+            "SELECT * FROM nf_imdb WHERE
+  title LIKE '%ship%'
+  AND genre LIKE '%sci%'
+  AND last_sync IS NOT NULL ORDER BY imdb_rating DESC;"
+        )
+    }
+
+    #[test]
+    fn query_title_ship_genre_sci_cast_not_badactor() {
+        assert_eq!(
+            build_sorted_filtered_query(
+                vec![
+                    (TITLE_COLUMN, "ship").into(),
+                    (GENRE_COLUMN, "sci").into(),
+                    (CAST_COLUMN, "!badactor").into(),
+                ],
+                &ItemType::Both
+            ),
+            "SELECT * FROM nf_imdb WHERE
+  title LIKE '%ship%'
+  AND genre LIKE '%sci%'
+  AND NOT 'cast' LIKE '%badactor%'
   AND last_sync IS NOT NULL ORDER BY imdb_rating DESC;"
         )
     }
