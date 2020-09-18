@@ -1,4 +1,4 @@
-use super::CAST_COLUMN;
+use super::{destructure_query_filter, QueryTerm, CAST_COLUMN};
 
 pub struct ColumnFilter {
     column: String,
@@ -14,6 +14,7 @@ impl From<(&str, &str)> for ColumnFilter {
     }
 }
 
+// TODO: figure out how to not repeat ourselves here
 impl From<(&str, &String)> for ColumnFilter {
     fn from(tp: (&str, &String)) -> Self {
         Self {
@@ -31,28 +32,22 @@ impl ColumnFilter {
             &self.column
         };
         let mut first = !matched_before;
-        let terms = self.query.split_ascii_whitespace();
+        let terms = destructure_query_filter(&self.query);
         let filters: Vec<String> = terms
-            .filter_map(|term| match term.chars().nth(0) {
-                Some(c) if c == '!' => {
+            .iter()
+            .map(|term| match term {
+                QueryTerm::Not(term) => {
                     let and = if first { "" } else { " AND" };
                     first = false;
-                    let q = term.split_at(1).1;
-                    if q.is_empty() {
-                        None
-                    } else {
-                        Some(format!("\n {} NOT {} LIKE '%{}%'", and, column, q))
-                    }
+                    format!("\n {} NOT {} LIKE '%{}%'", and, column, term)
                 }
-                Some(_) => {
+                QueryTerm::And(term) => {
                     let and = if first { "" } else { " AND" };
                     first = false;
-                    Some(format!("\n {} {} LIKE '%{}%'", and, column, term))
+                    format!("\n {} {} LIKE '%{}%'", and, column, term)
                 }
-                None => None,
             })
             .collect();
         filters
     }
 }
-

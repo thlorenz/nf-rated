@@ -49,7 +49,6 @@ pub struct App {
 
     pub item_type: ItemType,
     pub logs: Vec<Log>,
-    pub column: &'static str,
     pub input_mode: InputMode,
 }
 
@@ -68,7 +67,6 @@ impl App {
             item_type: ItemType::Both,
             logs: vec![],
             input_mode: InputMode::Querying,
-            column: GENRE_COLUMN.clone(),
         }
     }
 

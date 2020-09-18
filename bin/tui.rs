@@ -1,7 +1,8 @@
 use nf_rated::{
-    data::build_sorted_filtered_query, data::build_sorted_query, data::Db,
-    render::maybe_render_item_details, render::render_admin, render::render_log,
-    render::render_rows_summary, render::App, render::Event, render::Events, render::Log,
+    data::build_sorted_filtered_query, data::build_sorted_query, data::Db, data::GENRE_COLUMN,
+    data::TITLE_COLUMN, render::maybe_render_item_details, render::render_admin,
+    render::render_log, render::render_rows_summary, render::App, render::Event, render::Events,
+    render::Log,
 };
 use std::{error::Error, io};
 use termion::{event::Key, input::MouseTerminal, raw::IntoRawMode, screen::AlternateScreen};
@@ -45,7 +46,10 @@ fn exec_query(app: &mut App, db: &Db) -> Result<(), Box<dyn Error>> {
         }
     } else {
         let q = build_sorted_filtered_query(
-            vec![(app.column, &app.genre_query).into()],
+            vec![
+                (GENRE_COLUMN, &app.genre_query).into(),
+                (TITLE_COLUMN, &app.title_query).into(),
+            ],
             &app.item_type,
         );
         app.logs.push(Log::Debug(q.to_string()));

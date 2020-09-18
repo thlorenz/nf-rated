@@ -6,6 +6,7 @@ const QUERY_TAIL: &str = "last_sync IS NOT NULL ORDER BY imdb_rating DESC;";
 pub const GENRE_COLUMN: &str = "genre";
 pub const TITLE_COLUMN: &str = "title";
 pub const CAST_COLUMN: &str = "cast";
+pub const LANGUAGE_COLUMN: &str = "language";
 pub const COUNTRY_COLUMN: &str = "country";
 pub const DIRECTOR_COLUMN: &str = "director";
 pub const PLOT_COLUMN: &str = "plot";
