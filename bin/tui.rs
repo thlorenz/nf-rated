@@ -1,5 +1,6 @@
 use nf_rated::{
-    data::build_sorted_filtered_query, data::build_sorted_query, data::Db, data::GENRE_COLUMN,
+    data::build_sorted_filtered_query, data::build_sorted_query, data::Db, data::CAST_COLUMN,
+    data::COUNTRY_COLUMN, data::GENRE_COLUMN, data::LANGUAGE_COLUMN, data::PLOT_COLUMN,
     data::TITLE_COLUMN, render::maybe_render_item_details, render::render_admin,
     render::render_log, render::render_rows_summary, render::App, render::Event, render::Events,
     render::Log,
@@ -33,8 +34,18 @@ where
 }
 
 fn exec_query(app: &mut App, db: &Db) -> Result<(), Box<dyn Error>> {
-    let rows = if app.genre_query.is_empty() {
-        let q = build_sorted_query(&app.item_type);
+    let rows = if app.has_any_query() {
+        let q = build_sorted_filtered_query(
+            vec![
+                (GENRE_COLUMN, &app.genre_query).into(),
+                (TITLE_COLUMN, &app.title_query).into(),
+                (CAST_COLUMN, &app.cast_query).into(),
+                (COUNTRY_COLUMN, &app.country_query).into(),
+                (LANGUAGE_COLUMN, &app.language_query).into(),
+                (PLOT_COLUMN, &app.plot_query).into(),
+            ],
+            &app.item_type,
+        );
         app.logs.push(Log::Debug(q.to_string()));
 
         match db.get_no_params_query_result(&q) {
@@ -45,13 +56,7 @@ fn exec_query(app: &mut App, db: &Db) -> Result<(), Box<dyn Error>> {
             }
         }
     } else {
-        let q = build_sorted_filtered_query(
-            vec![
-                (GENRE_COLUMN, &app.genre_query).into(),
-                (TITLE_COLUMN, &app.title_query).into(),
-            ],
-            &app.item_type,
-        );
+        let q = build_sorted_query(&app.item_type);
         app.logs.push(Log::Debug(q.to_string()));
 
         match db.get_no_params_query_result(&q) {

@@ -20,8 +20,9 @@ pub fn query_offset(query_field: &QueryField) -> u16 {
         QueryField::Genre => 0,
         QueryField::Title => 1,
         QueryField::Cast => 2,
-        QueryField::Language => 3,
-        QueryField::Plot => 4,
+        QueryField::Country => 3,
+        QueryField::Language => 4,
+        QueryField::Plot => 5,
     } + 1
 }
 
@@ -59,6 +60,7 @@ where
                 Constraint::Length(3),
                 Constraint::Length(3),
                 Constraint::Length(3),
+                Constraint::Length(3),
             ]
             .as_ref(),
         )
@@ -67,9 +69,10 @@ where
     let genre_query_container = chunks[0];
     let title_query_container = chunks[1];
     let cast_query_container = chunks[2];
-    let language_query_container = chunks[3];
-    let plot_query_container = chunks[4];
-    let item_type_container = chunks[5];
+    let country_query_container = chunks[3];
+    let language_query_container = chunks[4];
+    let plot_query_container = chunks[5];
+    let item_type_container = chunks[6];
 
     let genre_query_ui = render_query(
         "Genre",
@@ -91,6 +94,13 @@ where
         &app.query_field == &QueryField::Cast,
     );
     f.render_widget(cast_query_ui, cast_query_container);
+
+    let country_query_ui = render_query(
+        "Country",
+        &app.country_query,
+        &app.query_field == &QueryField::Country,
+    );
+    f.render_widget(country_query_ui, country_query_container);
 
     let language_query_ui = render_query(
         "Language",

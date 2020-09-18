@@ -32,3 +32,7 @@ pub fn destructure_query_filter(q: &str) -> Vec<QueryTerm> {
         })
         .collect()
 }
+
+pub fn is_valid_query_filter(q: &str) -> bool {
+    !destructure_query_filter(q).is_empty()
+}

@@ -1,4 +1,4 @@
-use crate::{data::ItemType, data::GENRE_COLUMN, RatedRow};
+use crate::{data::is_valid_query_filter, data::ItemType, RatedRow};
 
 use super::StatefulList;
 
@@ -21,6 +21,7 @@ pub enum QueryField {
     Genre,
     Title,
     Cast,
+    Country,
     Language,
     Plot,
 }
@@ -31,6 +32,7 @@ impl From<QueryField> for String {
             QueryField::Genre => "Genre".to_string(),
             QueryField::Title => "Title".to_string(),
             QueryField::Cast => "Cast".to_string(),
+            QueryField::Country => "Country".to_string(),
             QueryField::Language => "Language".to_string(),
             QueryField::Plot => "Plot".to_string(),
         }
@@ -44,6 +46,7 @@ pub struct App {
     pub genre_query: String,
     pub title_query: String,
     pub cast_query: String,
+    pub country_query: String,
     pub language_query: String,
     pub plot_query: String,
 
@@ -61,6 +64,7 @@ impl App {
             genre_query: "".to_string(),
             title_query: "".to_string(),
             cast_query: "".to_string(),
+            country_query: "".to_string(),
             language_query: "".to_string(),
             plot_query: "".to_string(),
 
@@ -83,7 +87,8 @@ impl App {
         let next_query_field = match self.query_field {
             QueryField::Genre => QueryField::Title,
             QueryField::Title => QueryField::Cast,
-            QueryField::Cast => QueryField::Language,
+            QueryField::Cast => QueryField::Country,
+            QueryField::Country => QueryField::Language,
             QueryField::Language => QueryField::Plot,
             QueryField::Plot => QueryField::Genre,
         };
@@ -93,7 +98,8 @@ impl App {
     pub fn prev_query_field(&mut self) {
         let prev_query_field = match self.query_field {
             QueryField::Plot => QueryField::Language,
-            QueryField::Language => QueryField::Cast,
+            QueryField::Country => QueryField::Cast,
+            QueryField::Language => QueryField::Country,
             QueryField::Cast => QueryField::Title,
             QueryField::Title => QueryField::Genre,
             QueryField::Genre => QueryField::Plot,
@@ -106,6 +112,7 @@ impl App {
             QueryField::Genre => &self.genre_query,
             QueryField::Title => &self.title_query,
             QueryField::Cast => &self.cast_query,
+            QueryField::Country => &self.country_query,
             QueryField::Language => &self.language_query,
             QueryField::Plot => &self.plot_query,
         }
@@ -116,6 +123,7 @@ impl App {
             QueryField::Genre => self.genre_query.push(c),
             QueryField::Title => self.title_query.push(c),
             QueryField::Cast => self.cast_query.push(c),
+            QueryField::Country => self.country_query.push(c),
             QueryField::Language => self.language_query.push(c),
             QueryField::Plot => self.plot_query.push(c),
         };
@@ -126,9 +134,23 @@ impl App {
             QueryField::Genre => self.genre_query.pop(),
             QueryField::Title => self.title_query.pop(),
             QueryField::Cast => self.cast_query.pop(),
+            QueryField::Country => self.country_query.pop(),
             QueryField::Language => self.language_query.pop(),
             QueryField::Plot => self.plot_query.pop(),
         };
+    }
+
+    pub fn has_any_query(&self) -> bool {
+        vec![
+            &self.genre_query,
+            &self.title_query,
+            &self.cast_query,
+            &self.country_query,
+            &self.language_query,
+            &self.plot_query,
+        ]
+        .iter()
+        .any(|&q| is_valid_query_filter(q))
     }
 }
 

@@ -27,7 +27,7 @@ impl From<(&str, &String)> for ColumnFilter {
 impl ColumnFilter {
     pub fn sql_fragments(&self, matched_before: bool) -> Vec<String> {
         let column = if self.column == CAST_COLUMN {
-            "'cast'"
+            "`cast`"
         } else {
             &self.column
         };
