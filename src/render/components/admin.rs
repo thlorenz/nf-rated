@@ -4,11 +4,15 @@ use tui::{
     layout::Direction,
     layout::Layout,
     layout::Rect,
+    style::Modifier,
     style::{Color, Style},
     text::Span,
+    text::Spans,
     widgets::Block,
     widgets::BorderType,
     widgets::Borders,
+    widgets::List,
+    widgets::ListItem,
     widgets::Paragraph,
     Frame,
 };
@@ -23,7 +27,7 @@ pub fn query_offset(query_field: &QueryField) -> u16 {
         QueryField::Country => 3,
         QueryField::Language => 4,
         QueryField::Plot => 5,
-    } + 1
+    } + 2
 }
 
 pub fn render_admin<B>(f: &mut Frame<B>, app: &App, container: Rect)
@@ -54,25 +58,30 @@ where
         .direction(Direction::Vertical)
         .constraints(
             [
+                Constraint::Length(1),
                 Constraint::Length(3),
                 Constraint::Length(3),
                 Constraint::Length(3),
                 Constraint::Length(3),
                 Constraint::Length(3),
                 Constraint::Length(3),
-                Constraint::Length(3),
+                Constraint::Length(10),
             ]
             .as_ref(),
         )
         .split(container);
 
-    let genre_query_container = chunks[0];
-    let title_query_container = chunks[1];
-    let cast_query_container = chunks[2];
-    let country_query_container = chunks[3];
-    let language_query_container = chunks[4];
-    let plot_query_container = chunks[5];
-    let item_type_container = chunks[6];
+    let item_type_container = chunks[0];
+    let genre_query_container = chunks[1];
+    let title_query_container = chunks[2];
+    let cast_query_container = chunks[3];
+    let country_query_container = chunks[4];
+    let language_query_container = chunks[5];
+    let plot_query_container = chunks[6];
+    let keyboard_shortcuts_container = chunks[7];
+
+    let item_type_ui = render_item_type(&app.item_type);
+    f.render_widget(item_type_ui, item_type_container);
 
     let genre_query_ui = render_query(
         "Genre",
@@ -116,24 +125,46 @@ where
     );
     f.render_widget(plot_query_ui, plot_query_container);
 
-    let item_type_ui = render_item_type(&app.item_type);
-    f.render_widget(item_type_ui, item_type_container);
+    let keyboard_shortcuts = render_keyboard_shortcuts();
+    f.render_widget(keyboard_shortcuts, keyboard_shortcuts_container);
+    // TODO: add quick example explaining AND vs NOT (!) queries
+}
+
+fn render_keyboard_shortcuts() -> List<'static> {
+    // TODO: make this a table and add remaining shortcuts
+    let shortcut_style = Style::default()
+        .fg(Color::White)
+        .add_modifier(Modifier::BOLD);
+    let desc_style = Style::default().fg(Color::DarkGray);
+    let separator = Span::raw(":    ");
+
+    let items = vec![
+        ListItem::new(Spans(vec![
+            Span::styled("Ctrl-O", shortcut_style),
+            separator.clone(),
+            Span::styled("Change Type of Show", desc_style),
+        ])),
+        ListItem::new(Spans(vec![
+            Span::styled("← → | Ctrl-N Ctrl-P", shortcut_style),
+            separator.clone(),
+            Span::styled("Cycle through query fields", desc_style),
+        ])),
+    ];
+    List::new(items)
+        .block(Block::default().borders(Borders::ALL))
+        .highlight_style(Style::default())
 }
 
 fn render_item_type(item_type: &ItemType) -> Paragraph {
     let value = match item_type {
-        ItemType::Movie => "Movie",
+        ItemType::Movie => "Movies",
         ItemType::Series => "Series",
-        ItemType::Both => "Movie and Series",
+        ItemType::Both => "Movies and Series",
     };
     let value_style = Style::default().fg(Color::LightBlue);
     let value_span = Span::styled(value, value_style);
 
-    Paragraph::new(value_span).block(
-        Block::default()
-            .borders(Borders::NONE)
-            .title("Type of Show <Ctrl-O>"),
-    )
+    Paragraph::new(value_span)
 }
 
 fn render_query<'a>(label: &'a str, query: &'a str, selected: bool) -> Paragraph<'a> {
