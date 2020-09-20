@@ -17,7 +17,7 @@ use tui::{
 
 const PAGE_MARGIN_HEIGHT: i32 = 3;
 
-fn render_summary_and_admin<B>(f: &mut Frame<B>, app: &mut App, container: Rect)
+fn render_summary_and_admin<B>(f: &mut Frame<B>, app: &mut App, container: Rect) -> (Rect, Rect)
 where
     B: Backend,
 {
@@ -34,6 +34,8 @@ where
     render_admin(f, app, admin_container);
     let list_state = &mut app.items.state;
     f.render_stateful_widget(items, summary_container, list_state);
+
+    (admin_container, summary_container)
 }
 
 fn exec_query(app: &mut App, db: &Db) -> Result<(), Box<dyn Error>> {
@@ -95,7 +97,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut app = App::new(all_rows);
     app.items.state.select(Some(0));
 
-    let mut current_size: Rect = Default::default();
+    let mut current_summary_size: Rect = Default::default();
     let constraints = if _show_log {
         vec![
             Constraint::Percentage(60),
@@ -109,11 +111,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     terminal.clear()?;
     loop {
         terminal.draw(|mut f| {
-            current_size = f.size();
             let main_container = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints(constraints.as_ref())
-                .split(current_size);
+                .split(f.size());
 
             let (summary_and_config_container, item_details_container, log_container) = if _show_log
             {
@@ -122,7 +123,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 (main_container[0], main_container[1], main_container[1])
             };
 
-            render_summary_and_admin(&mut f, &mut app, summary_and_config_container);
+            let (_, summary_container) =
+                render_summary_and_admin(&mut f, &mut app, summary_and_config_container);
+            current_summary_size = summary_container;
 
             let selected_idx = app.items.state.selected();
             let item_details = if selected_idx.is_none() {
@@ -185,15 +188,17 @@ fn main() -> Result<(), Box<dyn Error>> {
                     modifiers: KeyModifiers::CONTROL,
                     code: KeyCode::Char('d'),
                 }) => {
-                    app.items
-                        .next_page((current_size.height as i32 - PAGE_MARGIN_HEIGHT).max(1));
+                    app.items.next_page(
+                        (current_summary_size.height as i32 - PAGE_MARGIN_HEIGHT).max(1),
+                    );
                 }
                 Event::Key(KeyEvent {
                     modifiers: KeyModifiers::CONTROL,
                     code: KeyCode::Char('u'),
                 }) => {
-                    app.items
-                        .previous_page((current_size.height as i32 - PAGE_MARGIN_HEIGHT).max(1));
+                    app.items.previous_page(
+                        (current_summary_size.height as i32 - PAGE_MARGIN_HEIGHT).max(1),
+                    );
                 }
 
                 //
