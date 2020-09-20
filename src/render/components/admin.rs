@@ -4,16 +4,14 @@ use tui::{
     layout::Direction,
     layout::Layout,
     layout::Rect,
-    style::Modifier,
     style::{Color, Style},
     text::Span,
-    text::Spans,
     widgets::Block,
     widgets::BorderType,
     widgets::Borders,
-    widgets::List,
-    widgets::ListItem,
     widgets::Paragraph,
+    widgets::Row,
+    widgets::Table,
     Frame,
 };
 
@@ -66,6 +64,7 @@ where
                 Constraint::Length(3),
                 Constraint::Length(3),
                 Constraint::Length(10),
+                Constraint::Length(10),
             ]
             .as_ref(),
         )
@@ -79,6 +78,7 @@ where
     let language_query_container = chunks[5];
     let plot_query_container = chunks[6];
     let keyboard_shortcuts_container = chunks[7];
+    let queries_container = chunks[8];
 
     let item_type_ui = render_item_type(&app.item_type);
     f.render_widget(item_type_ui, item_type_container);
@@ -125,34 +125,62 @@ where
     );
     f.render_widget(plot_query_ui, plot_query_container);
 
-    let keyboard_shortcuts = render_keyboard_shortcuts();
-    f.render_widget(keyboard_shortcuts, keyboard_shortcuts_container);
-    // TODO: add quick example explaining AND vs NOT (!) queries
+    render_keyboard_shortcuts(f, keyboard_shortcuts_container);
+    render_queries_legend(f, queries_container);
 }
 
-fn render_keyboard_shortcuts() -> List<'static> {
-    // TODO: make this a table and add remaining shortcuts
-    let shortcut_style = Style::default()
-        .fg(Color::White)
-        .add_modifier(Modifier::BOLD);
-    let desc_style = Style::default().fg(Color::DarkGray);
-    let separator = Span::raw(":    ");
+fn render_keyboard_shortcuts<B>(f: &mut Frame<B>, container: Rect)
+where
+    B: Backend,
+{
+    let shortcut_style = Style::default().fg(Color::Gray);
+    let table_style = Style::default().fg(Color::DarkGray);
 
+    let header = ["Shortcut", "Description"];
     let items = vec![
-        ListItem::new(Spans(vec![
-            Span::styled("Ctrl-O", shortcut_style),
-            separator.clone(),
-            Span::styled("Change Type of Show", desc_style),
-        ])),
-        ListItem::new(Spans(vec![
-            Span::styled("← → | Ctrl-N Ctrl-P", shortcut_style),
-            separator.clone(),
-            Span::styled("Cycle through query fields", desc_style),
-        ])),
+        vec!["<Tab>", "Cycle Filters"],
+        vec!["↓/↑ | Ctrl-N/Ctrl-P", "Select Next/Previous Show"],
+        vec!["Ctrl-D/Ctrl-U", "Select Next/Previous Page"],
+        vec!["Ctrl-E", "Erase all Filters"],
+        vec!["Ctrl-O", "Change Type of Show"],
     ];
-    List::new(items)
+
+    let rows = items
+        .iter()
+        .map(|i| Row::StyledData(i.iter(), shortcut_style));
+    let t = Table::new(header.iter(), rows)
+        .style(table_style)
         .block(Block::default().borders(Borders::ALL))
-        .highlight_style(Style::default())
+        .widths(&[Constraint::Percentage(30), Constraint::Percentage(70)]);
+
+    f.render_widget(t, container);
+}
+
+fn render_queries_legend<B>(f: &mut Frame<B>, container: Rect)
+where
+    B: Backend,
+{
+    let shortcut_style = Style::default().fg(Color::Gray);
+    let table_style = Style::default().fg(Color::DarkGray);
+
+    let header = ["Query", "Description"];
+    let items = vec![
+        vec![
+            "drama adventure",
+            "Match all that has 'drama' or 'adventure'",
+        ],
+        vec!["!comedy", "Match all that does not have 'comedy'"],
+    ];
+
+    let rows = items
+        .iter()
+        .map(|i| Row::StyledData(i.iter(), shortcut_style));
+    let t = Table::new(header.iter(), rows)
+        .style(table_style)
+        .block(Block::default().borders(Borders::ALL))
+        .widths(&[Constraint::Percentage(30), Constraint::Percentage(70)]);
+
+    f.render_widget(t, container);
 }
 
 fn render_item_type(item_type: &ItemType) -> Paragraph {
