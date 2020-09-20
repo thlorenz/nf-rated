@@ -13,3 +13,9 @@ Get API key from [omdbapi](http://www.omdbapi.com/).
 ```sh
 OMDB_KEY=<api key> cargo run --bin update_data
 ```
+
+Run TUI app to find good shows :)
+
+```sh
+cargo run
+```
