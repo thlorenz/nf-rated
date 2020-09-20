@@ -1,14 +1,17 @@
+use crossterm::{
+    event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers},
+    terminal::disable_raw_mode,
+    terminal::enable_raw_mode,
+};
 use nf_rated::{
     data::build_sorted_filtered_query, data::build_sorted_query, data::Db, data::CAST_COLUMN,
     data::COUNTRY_COLUMN, data::GENRE_COLUMN, data::LANGUAGE_COLUMN, data::PLOT_COLUMN,
     data::TITLE_COLUMN, render::maybe_render_item_details, render::render_admin,
-    render::render_log, render::render_rows_summary, render::App, render::Event, render::Events,
-    render::Log,
+    render::render_log, render::render_rows_summary, render::App, render::Log,
 };
-use std::{error::Error, io};
-use termion::{event::Key, input::MouseTerminal, raw::IntoRawMode, screen::AlternateScreen};
+use std::{error::Error, io::stdout, time::Duration};
 use tui::{
-    backend::Backend, backend::TermionBackend, layout::Constraint, layout::Direction,
+    backend::Backend, backend::CrosstermBackend, layout::Constraint, layout::Direction,
     layout::Layout, layout::Rect, Frame, Terminal,
 };
 
@@ -81,12 +84,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     #[cfg(feature = "log")]
     let _show_log: bool = true;
 
-    let stdout = io::stdout().into_raw_mode()?;
-    let stdout = MouseTerminal::from(stdout);
-    let stdout = AlternateScreen::from(stdout);
-    let backend = TermionBackend::new(stdout);
+    enable_raw_mode()?;
+
+    let stdout = stdout();
+    let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    let events = Events::new();
 
     let db = Db::new()?;
     let all_rows = db.get_synced_rows_sorted()?;
@@ -104,6 +106,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         vec![Constraint::Percentage(70), Constraint::Percentage(30)]
     };
 
+    terminal.clear()?;
     loop {
         terminal.draw(|mut f| {
             current_size = f.size();
@@ -134,54 +137,130 @@ fn main() -> Result<(), Box<dyn Error>> {
             };
         })?;
 
-        match events.next()? {
-            Event::Input(input) => match input {
-                Key::Esc => {
+        if poll(Duration::from_millis(200))? {
+            let event = read()?;
+            match event {
+                //
+                // Quit
+                //
+                Event::Key(KeyEvent {
+                    modifiers: KeyModifiers::NONE,
+                    code: KeyCode::Esc,
+                })
+                | Event::Key(KeyEvent {
+                    modifiers: KeyModifiers::CONTROL,
+                    code: KeyCode::Char('c'),
+                }) => {
                     break;
                 }
-                Key::Down | Key::Ctrl('n') => {
+
+                //
+                // Navigate list by item
+                //
+                Event::Key(KeyEvent {
+                    modifiers: KeyModifiers::CONTROL,
+                    code: KeyCode::Char('n'),
+                })
+                | Event::Key(KeyEvent {
+                    modifiers: KeyModifiers::NONE,
+                    code: KeyCode::Down,
+                }) => {
                     app.items.next();
                 }
-                Key::Up | Key::Ctrl('p') => {
+                Event::Key(KeyEvent {
+                    modifiers: KeyModifiers::CONTROL,
+                    code: KeyCode::Char('p'),
+                })
+                | Event::Key(KeyEvent {
+                    modifiers: KeyModifiers::NONE,
+                    code: KeyCode::Up,
+                }) => {
                     app.items.previous();
                 }
-                Key::Ctrl('d') => {
+
+                //
+                // Navigate list by page
+                //
+                Event::Key(KeyEvent {
+                    modifiers: KeyModifiers::CONTROL,
+                    code: KeyCode::Char('d'),
+                }) => {
                     app.items
                         .next_page((current_size.height as i32 - PAGE_MARGIN_HEIGHT).max(1));
                 }
-                Key::Ctrl('u') => {
+                Event::Key(KeyEvent {
+                    modifiers: KeyModifiers::CONTROL,
+                    code: KeyCode::Char('u'),
+                }) => {
                     app.items
                         .previous_page((current_size.height as i32 - PAGE_MARGIN_HEIGHT).max(1));
                 }
-                Key::Ctrl('o') => {
+
+                //
+                // Configure item type
+                //
+                Event::Key(KeyEvent {
+                    modifiers: KeyModifiers::CONTROL,
+                    code: KeyCode::Char('o'),
+                }) => {
                     app.next_item_type();
                     exec_query(&mut app, &db)?;
                 }
-                Key::Right => {
+
+                //
+                // Navigate filter inputs
+                //
+                Event::Key(KeyEvent {
+                    modifiers: KeyModifiers::NONE,
+                    code: KeyCode::Tab,
+                }) => {
                     app.next_query_field();
                 }
-                Key::Left => {
+                Event::Key(KeyEvent {
+                    modifiers: KeyModifiers::NONE,
+                    code: KeyCode::BackTab,
+                }) => {
                     app.logs.push(Log::Info("left".to_string()));
                     app.prev_query_field();
                 }
-                Key::Ctrl('c') => {
+
+                //
+                // Enter query
+                //
+                Event::Key(KeyEvent {
+                    modifiers: KeyModifiers::NONE,
+                    code: KeyCode::Backspace,
+                }) => {
+                    app.pop_off_query();
+                    exec_query(&mut app, &db)?;
+                }
+                Event::Key(KeyEvent {
+                    modifiers: KeyModifiers::NONE,
+                    code: KeyCode::Char(c),
+                })
+                | Event::Key(KeyEvent {
+                    modifiers: KeyModifiers::SHIFT,
+                    code: KeyCode::Char(c),
+                }) => {
+                    app.push_onto_query(c);
+                    exec_query(&mut app, &db)?;
+                }
+                Event::Key(KeyEvent {
+                    modifiers: KeyModifiers::CONTROL,
+                    code: KeyCode::Char('e'),
+                }) => {
                     app.logs.push(Log::Info("clearing all queries".to_string()));
                     app.clear_all_queries();
                     exec_query(&mut app, &db)?;
                 }
-                Key::Char(c) => {
-                    app.push_onto_query(c);
-                    exec_query(&mut app, &db)?;
-                }
-                Key::Backspace => {
-                    app.pop_off_query();
-                    exec_query(&mut app, &db)?;
-                }
                 _ => {}
-            },
-            _ => {}
+            }
         }
     }
 
+    terminal.clear()?;
+    terminal.set_cursor(0, 0)?;
+
+    disable_raw_mode()?;
     Ok(())
 }
