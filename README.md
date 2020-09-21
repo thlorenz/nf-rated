@@ -1,5 +1,7 @@
 # nf-rated [![](https://github.com/thlorenz/nf-rated/workflows/Rust/badge.svg?branch=master)](https://github.com/thlorenz/nf-rated/actions)
 
+[![](./resources/assets/nf-rated.gif)](./resources/assets/nf-rated.gif)
+
 ## Steps to Get Started
 
 Get API key from [omdbapi](http://www.omdbapi.com/).
