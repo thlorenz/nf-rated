@@ -149,7 +149,7 @@ pub fn sync_ratings(db: Db, limit: usize) -> Result<(), Box<dyn Error>> {
                 typ: SyncImdbResultType::RateLimitExceeded,
                 ..
             } => {
-                eprintln!("\nExceeded rate limit!!");
+                eprintln!("\nExceeded rate limit for today. Try again in 24 hours.");
                 _exceeded_limit = true;
                 break;
             }
