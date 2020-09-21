@@ -1,6 +1,6 @@
 [package]
 name = "nf-rated"
-version = "0.0.0"
+version = "0.1.0"
 description = "Query Netflix movies sorted by their IMDB rating."
 authors = ["Thorsten Lorenz <thlorenz@gmx.de>"]
 edition = "2018"
