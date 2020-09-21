@@ -1,0 +1,2 @@
+pre-release-commit-message = "chore: release v{{version}}"
+no-dev-version = true
