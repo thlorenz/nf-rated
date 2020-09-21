@@ -145,7 +145,7 @@ mod tests {
             "SELECT * FROM nf_imdb WHERE
   title LIKE '%ship%'
   AND genre LIKE '%sci%'
-  AND NOT 'cast' LIKE '%badactor%'
+  AND NOT `cast` LIKE '%badactor%'
   AND last_sync IS NOT NULL ORDER BY imdb_rating DESC;"
         )
     }
