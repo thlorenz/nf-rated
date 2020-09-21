@@ -9,7 +9,7 @@ use crossterm::{
     terminal::disable_raw_mode,
     terminal::enable_raw_mode,
 };
-use std::{error::Error, io::stdout, time::Duration};
+use std::{error::Error, io::stdout, process, time::Duration};
 use tui::{
     backend::Backend, backend::CrosstermBackend, layout::Constraint, layout::Direction,
     layout::Layout, layout::Rect, Frame, Terminal,
@@ -86,13 +86,21 @@ pub fn tui(db: Db) -> Result<(), Box<dyn Error>> {
     #[cfg(feature = "log")]
     let _show_log: bool = true;
 
+    let all_rows = db.get_synced_rows_sorted()?;
+    if all_rows.len() == 0 {
+        eprintln!(
+            "It looks like you have no rated items in your database yet.
+Make sure sync them by running 'nf-rated sync' first!"
+        );
+        process::exit(1);
+    }
+
     enable_raw_mode()?;
 
     let stdout = stdout();
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let all_rows = db.get_synced_rows_sorted()?;
     let mut app = App::new(all_rows);
     app.items.state.select(Some(0));
 

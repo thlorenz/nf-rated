@@ -1,16 +1,18 @@
 use clap::{App, Arg, SubCommand};
-use nf_rated::{data::get_database_info, data::Db, tui};
-use std::error::Error;
+use nf_rated::{data::get_database_info, data::Db, sync_ratings, tui};
+use std::{error::Error, thread, time::Duration};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let db_info = get_database_info()?;
     let db = Db::new(&db_info)?;
     if !db_info.db_exists {
-        eprintln!(
+        println!(
             "The database did not exist yet and was created at: {:?}
-Make sure to sync it first by running 'nf-rated sync'.",
+Make sure to sync ratings first by running 'nf-rated sync'.",
             db_info.db_path
         );
+    } else {
+        println!("Found database at {:?}", db_info.db_path);
     }
 
     let matches = App::new("nf-rated")
@@ -33,13 +35,19 @@ Make sure to sync it first by running 'nf-rated sync'.",
                 matches
                     .value_of("limit")
                     .unwrap()
-                    .parse::<u16>()
+                    .parse::<usize>()
                     .expect("Limit needs to be a number, i.e. 1000")
             } else {
                 1000
             };
+            sync_ratings(db, limit)?;
         }
-        None => tui(db)?,
+        None => {
+            if !db_info.db_exists {
+                thread::sleep(Duration::from_millis(3000));
+            }
+            tui(db)?
+        }
     }
 
     Ok(())

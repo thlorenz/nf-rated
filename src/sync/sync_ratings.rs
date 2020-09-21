@@ -1,4 +1,4 @@
-use nf_rated::{
+use crate::{
     data::secs_since_creation,
     data::Db,
     data::JsonRow,
@@ -7,14 +7,19 @@ use nf_rated::{
 };
 use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use reqwest::blocking::get;
-use std::{env, error::Error};
-
-const RATE_LIMIT: usize = 2000;
+use std::{env, error::Error, process};
 
 fn get_api_key() -> String {
-    env::var("OMDB_KEY").expect(
-        "Please add an OMDB (http://www.omdbapi.com/) API key as 'OMDB_KEY' to your environment",
-    )
+    match env::var("OMDB_KEY") {
+        Err(_) => {
+            eprintln!(
+                "Please add an OMDB  API key as 'OMDB_KEY' to your environment.
+You can obtain it from (http://www.omdbapi.com/)."
+            );
+            process::exit(1)
+        }
+        Ok(key) => key,
+    }
 }
 
 fn reached_rate_limit(json: &OmdbErrorResponseJson) -> bool {
@@ -114,12 +119,11 @@ fn sync_imdb_title(api_key: &str, title: &str) -> SyncImdbResult {
     }
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let db = Db::new()?;
+pub fn sync_ratings(db: Db, limit: usize) -> Result<(), Box<dyn Error>> {
     let unsynceds = db.get_unsynced_rows()?;
     let api_key = get_api_key();
     let nunsynced = unsynceds.len();
-    let amount_to_sync = RATE_LIMIT.min(nunsynced);
+    let amount_to_sync = limit.min(nunsynced);
     eprintln!(
         "Found {} unsynced records, syncing {}",
         nunsynced, amount_to_sync
