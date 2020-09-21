@@ -1,6 +1,10 @@
 use rusqlite::{params, Connection, Error, Result, NO_PARAMS};
 
-use crate::{core::RatedRow, data::rated_row_from_row};
+use super::{rated_row_from_row, CsvRow};
+use crate::core::RatedRow;
+use std::{error::Error as StdError, fs};
+
+use super::DatabaseInfo;
 
 const CREATE_TABLE_QUERY: &str = "CREATE TABLE IF NOT EXISTS nf_imdb (
     id               INTEGER PRIMARY KEY,
@@ -85,9 +89,30 @@ pub struct Db {
 }
 
 impl Db {
-    pub fn new() -> Result<Db> {
-        let con = Connection::open("resources/data/nf_rated.sqlite")?;
-        Ok(Self { con })
+    pub fn new(info: &DatabaseInfo) -> Result<Db, Box<dyn StdError>> {
+        if !info.folder_exists {
+            fs::create_dir_all(&info.folder)?;
+        }
+
+        let con = Connection::open(&info.db_path)?;
+        let db = Self { con };
+        if !info.db_exists {
+            db.init_data()?;
+        }
+        Ok(db)
+    }
+
+    fn init_data(&self) -> Result<(), Box<dyn StdError>> {
+        self.create_table()?;
+
+        let csv = include_str!("../../resources/data/netflix_titles.csv");
+        let mut rdr = csv::Reader::from_reader(csv.as_bytes());
+        for result in rdr.records() {
+            let row: CsvRow = result?.into();
+            self.upsert_row(&row.into())?;
+        }
+
+        Ok(())
     }
 
     pub fn create_table(&self) -> Result<usize> {

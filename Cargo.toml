@@ -4,8 +4,6 @@ version = "0.1.0"
 authors = ["Thorsten Lorenz <thlorenz@gmx.de>"]
 edition = "2018"
 
-default-run = "tui"
-
 [features]
 log = []
 
@@ -18,15 +16,5 @@ serde_json = "1.0.57"
 percent-encoding = "2.1.0"
 tui = { version = "0.10.0", features = ["crossterm"] }
 crossterm = "0.17.7"
-
-[[bin]]
-name="sync_ratings"
-path= "bin/sync_ratings.rs"
-
-[[bin]]
-name="init_data"
-path= "bin/init_data.rs"
-
-[[bin]]
-name="tui"
-path= "bin/tui.rs"
+clap = "2.33.3"
+app_dirs = "1.2.1"

@@ -1,13 +1,13 @@
-use crossterm::{
-    event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers},
-    terminal::disable_raw_mode,
-    terminal::enable_raw_mode,
-};
-use nf_rated::{
+use super::{
     data::build_sorted_filtered_query, data::build_sorted_query, data::Db, data::CAST_COLUMN,
     data::COUNTRY_COLUMN, data::GENRE_COLUMN, data::LANGUAGE_COLUMN, data::PLOT_COLUMN,
     data::TITLE_COLUMN, render::maybe_render_item_details, render::render_admin,
     render::render_log, render::render_rows_summary, render::App, render::Log,
+};
+use crossterm::{
+    event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers},
+    terminal::disable_raw_mode,
+    terminal::enable_raw_mode,
 };
 use std::{error::Error, io::stdout, time::Duration};
 use tui::{
@@ -81,7 +81,7 @@ fn exec_query(app: &mut App, db: &Db) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+pub fn tui(db: Db) -> Result<(), Box<dyn Error>> {
     let _show_log: bool = false;
     #[cfg(feature = "log")]
     let _show_log: bool = true;
@@ -92,7 +92,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let db = Db::new()?;
     let all_rows = db.get_synced_rows_sorted()?;
     let mut app = App::new(all_rows);
     app.items.state.select(Some(0));
