@@ -2,16 +2,11 @@
 
 ## Steps
 
-Insert data from provided CSV file:
-
-```sh
-cargo run --bin init_data
-```
-
 Get API key from [omdbapi](http://www.omdbapi.com/).
 
 ```sh
-OMDB_KEY=<api key> cargo run --bin update_data
+OMDB_KEY=<api key> cargo run sync 
+
 ```
 
 Run TUI app to find good shows :)
@@ -19,3 +14,7 @@ Run TUI app to find good shows :)
 ```sh
 cargo run
 ```
+
+## LICENSE
+
+MIT
