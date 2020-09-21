@@ -2,19 +2,21 @@
 
 [![](./resources/assets/nf-rated.gif)](./resources/assets/nf-rated.gif)
 
+Query Netflix movies sorted by their IMDB rating.
+
 ## Steps to Get Started
 
 Get API key from [omdbapi](http://www.omdbapi.com/).
 
 ```sh
-OMDB_KEY=<api key> cargo run sync 
+OMDB_KEY=<api key> nf-rated sync 
 
 ```
 
 Run TUI app to find good shows :)
 
 ```sh
-cargo run
+nf-rated
 ```
 
 ## LICENSE

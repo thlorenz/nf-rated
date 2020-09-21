@@ -1,9 +1,15 @@
 [package]
 name = "nf-rated"
-version = "0.1.0"
+version = "0.0.0"
+description = "Query Netflix movies sorted by their IMDB rating."
 authors = ["Thorsten Lorenz <thlorenz@gmx.de>"]
 edition = "2018"
-exclude = [".github/**/*", "release.toml"]
+
+repository = "https://github.com/thlorenz/nf-rated"
+readme = "README.md"
+include = ["src/**/*", "Cargo.toml", "resources/data/netflix_titles.csv"]
+
+license = "MIT"
 
 [features]
 log = []
